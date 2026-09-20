@@ -25,6 +25,8 @@
 
 ---
 
+> This project is currently in an early state. The current version can have breaking changes.
+
 ## Features
 
 - **Workspace & Multi-Crate Discovery:** Automatically scans the root manifest, all workspace members, and standalone nested crates across the entire repository.
