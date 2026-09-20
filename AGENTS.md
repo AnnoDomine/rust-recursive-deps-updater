@@ -1,6 +1,5 @@
 # Agent Guidelines & Engineering Standards for `rrdu`
 
-Priority Information: As long as the file [PLANING.md](./PLANING.md) is present in the branch, the project is in the initialization phase, which means no code will be generated until the initialization phase is fulfilled.
 
 This document serves as the single source of truth and directive for all AI agents, automated assistants, and developers contributing to `rust-recursive-deps-updater` (`rrdu`).
 
