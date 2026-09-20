@@ -1,0 +1,38 @@
+[package]
+name = "rust-recursive-deps-updater"
+version = "0.0.1"
+edition = "2024"
+authors = ["Dominic Seel"]
+description = "A fast, safe, zero-privilege recursive Cargo dependency updater for Rust workspaces and standalone crates."
+license = "GPL-3.0-or-later"
+repository = "https://github.com/AnnoDomine/rust-recursive-deps-updater"
+homepage = "https://github.com/AnnoDomine/rust-recursive-deps-updater"
+readme = "README.md"
+keywords = ["cargo", "dependencies", "updater", "workspace", "semver"]
+categories = ["development-tools::cargo-plugins", "command-line-utilities"]
+
+[[bin]]
+name = "rrdu"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.6.7", features = ["derive"] }
+colored = "3.1.1"
+indicatif = "0.18.6"
+noyalib = "0.0.45"
+semver = "1.0.28"
+serde = { version = "1.0.229", features = ["derive"] }
+thiserror = "2.0.20"
+toml_edit = "0.25.15"
+ureq = { version = "3.4.2", features = ["rustls"] }
+walkdir = "2.5.0"
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[profile.release]
+opt-level = 1
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
