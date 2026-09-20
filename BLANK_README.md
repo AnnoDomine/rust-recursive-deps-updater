@@ -85,7 +85,60 @@
 
 [![Product Name Screen Shot][product-screenshot]](https://example.com)
 
-Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `github_username`, `repo_name`, `twitter_handle`, `linkedin_username`, `email_client`, `email`, `project_title`, `project_description`
+## Rust Recursive Dependecy Updater
+
+A standalone CLI to get a better control over the dependencies of your Rust workspaces
+
+This CLI provides you a possibility to list all dependencies in your Rust workspace.
+It search for all Cargo.toml from the root and integrated workspaces.
+In you project you can provide a single configuration file `.rrduconfig` in yaml style to confug in deep the CLI in the workspace.
+If no configuration file is provided, the Cargo.toml and all included workspaces are used for the CLI.
+
+Example of a .rrduconfig:
+```yml
+workspace:
+  - project: "Root" # Name of the project
+    toml: "./" # Folder where the Cargo.toml is placed
+    exclude: [
+      "tokio",
+      "serde"
+    ] # List of dependencies to exclude from the check
+```
+
+CLI:
+```sh
+Welcome to the Rust Recursive Dependency Updater
+Your current workspace is: /......./
+No Configuration fount .rrduconfig. Scanning all Carego.toml
+
+Found 3 project:
+- Root (./)
+- WorkspaceCrate (./crates/workspace_crate/)
+- AnotherWorkspaceCrate (./crates/another_workspace_crate/)
+
+Please select project or '*' to scan/update all project dependencies.
+
+# --- When selecting specific project (e.g. "Root")
+
+Project: Root
+3 Dependencies found.
+Dependencies:
+- serde_json: latest version
+- clap: current 0.12.5 -> latest: 0.20.0 [Need manuel migration]
+- axum: current 0.5.3 -> latest: 0.5.4 [No migration needed]
+
+Select specific crate to update or '*' for all without migration needed. '*-force' to update all crates incl. which needs manuel migration
+
+# --- When selecting all wit asterisk
+
+Project: WorkspaceCrate
+2 Dependencies found. (1 from workspace)
+Excluded 2 dependencies
+Dependencies:
+- yaml_serde: latest version
+
+#...
+```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
