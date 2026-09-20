@@ -1,0 +1,68 @@
+name: "Lint PR Title"
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+
+permissions:
+  pull-requests: write
+
+jobs:
+  lint:
+    name: Validate Conventional Commit PR Title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lint PR Title
+        id: lint_pr_title
+        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            ci
+            chore
+          requireScope: false
+
+      - name: Post or update error comment on invalid PR title
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+        if: always() && (steps.lint_pr_title.outputs.error_message != null)
+        with:
+          header: pr-title-lint-error
+          message: |
+            Thank you for your pull request.
+
+            The title of this pull request does not conform to the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+            ```text
+            ${{ steps.lint_pr_title.outputs.error_message }}
+            ```
+
+            ### Expected format
+            `<type>(<optional scope>): <description>`
+
+            ### Allowed types
+            `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `ci`, `chore`
+
+            ### Examples
+            - `feat(config): add support for updater.max_lines`
+            - `fix(workspace): resolve circular manifest references`
+            - `docs: update AGENTS.md anti-vibe-coding policy`
+
+            Please update the PR title to follow this format. Once updated and valid, this comment will be removed automatically.
+
+      - name: Delete error comment when PR title is valid
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+        if: steps.lint_pr_title.outputs.error_message == null
+        with:
+          header: pr-title-lint-error
+          delete: true

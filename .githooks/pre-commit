@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -e
+
+echo "[rrdu hook] Running pre-commit quality checks..."
+
+echo "[rrdu hook] 1/3 Checking code formatting (cargo fmt)..."
+cargo fmt --all -- --check
+
+echo "[rrdu hook] 2/3 Running linter (cargo clippy)..."
+cargo clippy --all-targets -- -D warnings
+
+echo "[rrdu hook] 3/3 Running tests (cargo test)..."
+cargo test --all-targets
+
+echo "[rrdu hook] All pre-commit checks passed successfully!"
