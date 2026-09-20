@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -e
+
+MSG_FILE="$1"
+COMMIT_MSG=$(head -n 1 "$MSG_FILE")
+
+# Regular expression for Conventional Commits
+CONVENTIONAL_REGEX="^(feat|fix|docs|style|refactor|perf|test|ci|chore|build|revert)(\([a-zA-Z0-9_\-\./]+\))?(!)?: .+"
+
+echo "[rrdu hook] Running coventional commit check..."
+
+if ! echo "$COMMIT_MSG" | grep -Eq "$CONVENTIONAL_REGEX"; then
+    echo ""
+    echo "[rrdu hook] ERROR: Invalid commit message format."
+    echo "[rrdu hook] Received: '$COMMIT_MSG'"
+    echo ""
+    echo "[rrdu hook] Commit messages must follow the Conventional Commits specification:"
+    echo "  <type>(<optional scope>): <subject>"
+    echo ""
+    echo "  Allowed types: feat, fix, docs, style, refactor, perf, test, ci, chore, build, revert"
+    echo "  Example: feat(config): add support for updater.max_lines pagination"
+    echo "  Example: docs: update AGENTS.md anti-vibe-coding policy"
+    echo ""
+    exit 1
+else
+    echo "[rrdu hook] Conventional commit passed successfully!"
+fi

@@ -1,0 +1,80 @@
+name: 'Rust Recursive Dependency Updater'
+description: 'Fast, safe, zero-privilege recursive Cargo dependency scanner and updater for Rust workspaces and standalone crates.'
+author: 'AnnoDomine'
+
+branding:
+  icon: 'refresh-cw'
+  color: 'orange'
+
+inputs:
+  run:
+    description: 'Execution mode: "scan" (inspect and exit with code 1 if outdated) or "full" (auto-update according to config)'
+    required: true
+    default: 'scan'
+  version:
+    description: 'Version of rrdu to run (e.g., "latest" or a release tag like "v0.1.0")'
+    required: false
+    default: 'latest'
+  config:
+    description: 'Path to custom configuration file (copied to .rrduconfig if not in default root location)'
+    required: false
+    default: '.rrduconfig'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Download and install rrdu (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -euo pipefail
+        BIN_DIR="${RUNNER_TEMP}/rrdu-bin"
+        mkdir -p "${BIN_DIR}"
+        
+        VERSION="${{ inputs.version }}"
+        if [ "${VERSION}" = "latest" ]; then
+          DOWNLOAD_URL="https://github.com/AnnoDomine/rust-recursive-deps-updater/releases/latest/download/rrdu-x86_64-unknown-linux-gnu.tar.gz"
+        else
+          DOWNLOAD_URL="https://github.com/AnnoDomine/rust-recursive-deps-updater/releases/download/${VERSION}/rrdu-x86_64-unknown-linux-gnu.tar.gz"
+        fi
+        
+        curl -sSL --retry 3 --connect-timeout 10 "${DOWNLOAD_URL}" | tar -xz -C "${BIN_DIR}"
+        chmod +x "${BIN_DIR}/rrdu"
+        echo "${BIN_DIR}" >> "${GITHUB_PATH}"
+
+    - name: Download and install rrdu (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $binDir = Join-Path $env:RUNNER_TEMP "rrdu-bin"
+        New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+        
+        $version = "${{ inputs.version }}"
+        if ($version -eq "latest") {
+          $downloadUrl = "https://github.com/AnnoDomine/rust-recursive-deps-updater/releases/latest/download/rrdu-x86_64-pc-windows-msvc.zip"
+        } else {
+          $downloadUrl = "https://github.com/AnnoDomine/rust-recursive-deps-updater/releases/download/$version/rrdu-x86_64-pc-windows-msvc.zip"
+        }
+        
+        $zipPath = Join-Path $binDir "rrdu.zip"
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath
+        Expand-Archive -Path $zipPath -DestinationPath $binDir -Force
+        Remove-Item $zipPath
+        
+        echo "$binDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    - name: Apply custom config path
+      if: inputs.config != '.rrduconfig'
+      shell: bash
+      run: |
+        if [ -f "${{ inputs.config }}" ]; then
+          cp "${{ inputs.config }}" .rrduconfig
+        else
+          echo "Warning: Specified config file '${{ inputs.config }}' was not found. Using default discovery."
+        fi
+
+    - name: Run rrdu
+      shell: bash
+      run: |
+        rrdu --run="${{ inputs.run }}"
