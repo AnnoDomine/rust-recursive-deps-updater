@@ -1,0 +1,5 @@
+# Claude Code Directives
+
+This repository uses `AGENTS.md` as the single source of truth for all architectural decisions, code quality standards, security rules, and contributor workflows.
+
+Please read and strictly follow all directives defined in `AGENTS.md`.
