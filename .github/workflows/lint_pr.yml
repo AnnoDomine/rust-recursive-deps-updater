@@ -54,7 +54,7 @@ jobs:
             `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `ci`, `chore`
 
             ### Examples
-            - `feat(config): add support for updater.max_lines`
+            - `feat(config): add support for updater.max-lines`
             - `fix(workspace): resolve circular manifest references`
             - `docs: update AGENTS.md anti-vibe-coding policy`
 

@@ -33,7 +33,7 @@
 - **Zero-Privilege & Sandboxed:** Runs purely in user space without requiring root or administrator rights. Built with `#![forbid(unsafe_code)]` and strict path-traversal prevention.
 - **Intelligent SemVer Classification:** Distinguishes between compatible updates (`[No migration needed]`) and breaking changes (`[Need manual migration]`) based on official Cargo SemVer conventions.
 - **Formatting-Preserving Manifest Updates:** Powered by `toml_edit` to ensure all comments, inline tables, whitespace, and formatting in `Cargo.toml` remain completely intact.
-- **Interactive CLI with Pagination:** Terminal interface with page-by-page scrolling (`/next`, `/prev`, arrow keys, configurable `max_lines`), visual spinners, `/back` navigation, and `/exit`.
+- **Interactive CLI with Pagination:** Terminal interface with page-by-page scrolling (`/next`, `/prev`, arrow keys, configurable `max-lines`), visual spinners, `/back` navigation, and `/exit`.
 - **Headless CI & GitHub Action:** Single-argument execution (`--run=scan` / `--run=full`) providing a clean 5-column tabular report for CI/CD gates.
 - **Integrated Self-Update:** Update `rrdu` directly to the newest release with `rrdu self-update`.
 - **Zero-Dependency Table Reporting:** Terminal tables rendered natively without external table crates for minimal attack surface.
@@ -128,7 +128,7 @@ updater:
     - excluded_folder
   auto-update: none   # Options: "none", "*", "*-force"
   auto-scan: true     # Options: true, false, or list of project names
-  max_lines: 50       # Maximum entries per page during interactive pagination
+  max-lines: 50       # Maximum entries per page during interactive pagination
 ```
 
 ### Configuration Options
@@ -141,7 +141,7 @@ updater:
 | `updater.exclude` | `list` | Folders to completely skip during recursive scans *(optional)* |
 | `updater.auto-update` | `string` | Default update behavior for `--run=full` (`none`, `*`, `*-force`) |
 | `updater.auto-scan` | `bool \| list` | Scan trigger behavior upon CLI launch *(default: true)* |
-| `updater.max_lines` | `int` | Maximum items displayed per page in interactive mode *(default: 50)* |
+| `updater.max-lines` | `int` | Maximum items displayed per page in interactive mode *(default: 50)* |
 
 ---
 

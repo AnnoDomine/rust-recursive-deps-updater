@@ -18,7 +18,7 @@ if ! echo "$COMMIT_MSG" | grep -Eq "$CONVENTIONAL_REGEX"; then
     echo "  <type>(<optional scope>): <subject>"
     echo ""
     echo "  Allowed types: feat, fix, docs, style, refactor, perf, test, ci, chore, build, revert"
-    echo "  Example: feat(config): add support for updater.max_lines pagination"
+    echo "  Example: feat(config): add support for updater.max-lines pagination"
     echo "  Example: docs: update AGENTS.md anti-vibe-coding policy"
     echo ""
     exit 1

@@ -145,9 +145,15 @@ impl RrduConfig {
         // Stores the configuration
         let serializer_config: SerializerConfig = SerializerConfig::new().quote_all(false);
         let path = Self::retreive_config_path()?;
+        if path.exists() {
+            println!(
+                "Config file already exists. To create a new one, delete it and run 'rrdu --init'."
+            );
+            return Ok(());
+        }
         let file = std::fs::File::create(path)?;
         let writer = std::io::BufWriter::new(file);
-        let _ = noyalib::to_writer_with_config(writer, self, &serializer_config);
+        noyalib::to_writer_with_config(writer, self, &serializer_config)?;
         Ok(())
     }
 
