@@ -38,26 +38,26 @@ This document serves as the central engineering specification, architecture manu
 - **Specification:**
   ```yaml
   workspace:
-    - project: "Root"
-      toml: "./"
+    - project: Root
+      toml: ./
       exclude:
-        - "tokio"
-        - "serde"
-    - project: "WorkspaceCrate"
-      toml: "./crates/workspace_crate/"
+        - tokio
+        - serde
+    - project: WorkspaceCrate
+      toml: crates/workspace_crate
   
   updater:
     exclude:
-      - "./excluded_folder/"
-    auto-update: "none"
+      - excluded_folder
+    auto-update: none
     auto-scan: true
-    max_lines: 50
+    max-lines: 50
   ```
   - `workspace.project.exclude`: Optional list of crate names excluded from scan and update for this specific project.
   - `updater.exclude`: Optional folder paths ignored during recursive discovery.
   - `updater.auto-update`: Automated update strategy (`none`, `*`, `*-force`). Default: `"none"`.
   - `updater.auto-scan`: Automatic scan on interactive CLI startup (`true`, `false`, or list of project names). Default: `true`.
-  - `updater.max_lines`: Maximum entries per page during interactive pagination. Default: `50`.
+  - `updater.max-lines`: Maximum entries per page during interactive pagination. Default: `50`.
 
 ### 2.2 Workspace & Crate Discovery Engine
 - **Root Manifest Inspection:** Evaluates root `Cargo.toml` for `[workspace]` definitions and resolves `[workspace.members]` patterns (including globs like `crates/*`).
@@ -90,7 +90,7 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
   - Asynchronously checks GitHub Releases for new `rrdu` versions. If an update is available, displays a non-blocking notification:
     `A new version of rrdu is available (vX.Y.Z -> vA.B.C). Run 'rrdu self-update' to update.`
 - **Pagination & Navigation:**
-  - Projects and crates are paginated based on `updater.max_lines` (default 50).
+  - Projects and crates are paginated based on `updater.max-lines` (default 50).
   - Navigation commands: `/next`, `/prev`, arrow keys (Up/Down/Left/Right).
   - Global navigation: `/back` (return to previous view), `/exit` or `/quit` (exit process with code 2).
   - Contextual Help: Typing `/?`, `/h`, or `/help` displays available commands and keyboard shortcuts.
@@ -267,11 +267,11 @@ rust-recursive-deps-updater/
 - [x] Finalize official user documentation in `README.md` and project assets.
 
 ### Phase 1: Configuration Layer (`.rrduconfig`) & `init` Command
-- [ ] Implement `src/config/model.rs` defining `RrduConfig`, `ProjectConfig`, and `UpdaterConfig`.
-- [ ] Implement YAML parsing via `noyalib` with comprehensive error mapping to `ConfigError`.
-- [ ] Implement path canonicalization and path traversal validation (rejecting `../` and root `/`).
-- [ ] Implement `rrdu init` generator creating a fully-commented `.rrduconfig` template with overwrite protection.
-- [ ] Unit tests for configuration parsing, default values, and path validation.
+- [x] Implement `src/config/model.rs` defining `RrduConfig`, `ProjectConfig`, and `UpdaterConfig`.
+- [x] Implement YAML parsing via `noyalib` with comprehensive error mapping to `ConfigError`.
+- [x] Implement path canonicalization and path traversal validation (rejecting `../` and root `/`).
+- [x] Implement `rrdu init` generator creating a fully-commented `.rrduconfig` template with overwrite protection.
+- [x] Unit tests for configuration parsing, default values, and path validation.
 
 ### Phase 2: Workspace & Sub-Crate Discovery Engine (`workspace`)
 - [ ] Implement `src/workspace/project.rs` for crate and dependency representation.
@@ -294,7 +294,7 @@ rust-recursive-deps-updater/
 ### Phase 4: Interactive CLI, Table Formatter & Headless Modes (`cli`)
 - [ ] Implement interactive banner, status presentation, and `indicatif` spinner.
 - [ ] Implement native zero-dependency table renderer in `src/cli/table.rs`.
-- [ ] Implement interactive pagination (`/next`, `/prev`, arrow keys, `updater.max_lines`).
+- [ ] Implement interactive pagination (`/next`, `/prev`, arrow keys, `updater.max-lines`).
 - [ ] Implement interactive commands: `*`, `*-force`, crate selection, `/back`, `/exit`, `/quit`.
 - [ ] Implement in-app generic help (`/?`, `/h`, `/help`).
 - [ ] Implement headless mode `rrdu --run=scan` (5-column formatted table output, exit code 0/1).

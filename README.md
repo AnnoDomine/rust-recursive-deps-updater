@@ -33,7 +33,7 @@
 - **Zero-Privilege & Sandboxed:** Runs purely in user space without requiring root or administrator rights. Built with `#![forbid(unsafe_code)]` and strict path-traversal prevention.
 - **Intelligent SemVer Classification:** Distinguishes between compatible updates (`[No migration needed]`) and breaking changes (`[Need manual migration]`) based on official Cargo SemVer conventions.
 - **Formatting-Preserving Manifest Updates:** Powered by `toml_edit` to ensure all comments, inline tables, whitespace, and formatting in `Cargo.toml` remain completely intact.
-- **Interactive CLI with Pagination:** Terminal interface with page-by-page scrolling (`/next`, `/prev`, arrow keys, configurable `max_lines`), visual spinners, `/back` navigation, and `/exit`.
+- **Interactive CLI with Pagination:** Terminal interface with page-by-page scrolling (`/next`, `/prev`, arrow keys, configurable `max-lines`), visual spinners, `/back` navigation, and `/exit`.
 - **Headless CI & GitHub Action:** Single-argument execution (`--run=scan` / `--run=full`) providing a clean 5-column tabular report for CI/CD gates.
 - **Integrated Self-Update:** Update `rrdu` directly to the newest release with `rrdu self-update`.
 - **Zero-Dependency Table Reporting:** Terminal tables rendered natively without external table crates for minimal attack surface.
@@ -47,7 +47,7 @@ Download the latest pre-compiled binary from [GitHub Releases](https://github.co
 
 ### Via Cargo
 ```sh
-cargo install rrdu
+cargo install rust-recursive-deps-updater
 ```
 
 ### GitHub Marketplace Action
@@ -76,7 +76,7 @@ rrdu
 ### 2. Configuration Initialization
 Generate a tailored, documented `.rrduconfig` file by scanning the workspace:
 ```sh
-rrdu init
+rrdu --init
 ```
 
 ### 3. Headless CI / Automation Mode
@@ -92,19 +92,19 @@ rrdu --run=full
 ### 4. Self-Update
 Check for newer releases on GitHub and update the installed binary in-place:
 ```sh
-rrdu self-update
+rrdu --self-update
 ```
 
 ### 5. Diagnostics & Bug Report
 Generate an anonymized diagnostic report to paste into GitHub issues (paths are strictly sanitized to protect privacy):
 ```sh
-rrdu report
+rrdu --report
 ```
 
 ### 6. Command Help
 Display a formatted reference of all available commands, options, and descriptions:
 ```sh
-rrdu help
+rrdu --help
 ```
 
 ---
@@ -115,20 +115,20 @@ You can place an optional `.rrduconfig` file in your repository root to configur
 
 ```yaml
 workspace:
-  - project: "Root"
-    toml: "./"
+  - project: Root
+    toml: ./
     exclude:
-      - "tokio"
-      - "serde"
-  - project: "WorkspaceCrate"
-    toml: "./crates/workspace_crate/"
+      - tokio
+      - serde
+  - project: WorkspaceCrate
+    toml: crates/workspace_crate
 
 updater:
   exclude:
-    - "./excluded_folder/"
-  auto-update: "none" # Options: "none", "*", "*-force"
+    - excluded_folder
+  auto-update: none   # Options: "none", "*", "*-force"
   auto-scan: true     # Options: true, false, or list of project names
-  max_lines: 50       # Maximum entries per page during interactive pagination
+  max-lines: 50       # Maximum entries per page during interactive pagination
 ```
 
 ### Configuration Options
@@ -136,12 +136,12 @@ updater:
 | Setting | Type | Description |
 |---|---|---|
 | `workspace.project` | `string` | Human-readable name of the project |
-| `workspace.toml` | `path` | Path to the directory containing `Cargo.toml` (e.g. `./`, `./crates/foo`) |
+| `workspace.toml` | `path` | Path to the directory containing `Cargo.toml` (e.g. `./`, `./crates/foo`, `crates/bar`) |
 | `workspace.exclude` | `list` | Crate names excluded from updates for this project *(optional)* |
 | `updater.exclude` | `list` | Folders to completely skip during recursive scans *(optional)* |
 | `updater.auto-update` | `string` | Default update behavior for `--run=full` (`none`, `*`, `*-force`) |
 | `updater.auto-scan` | `bool \| list` | Scan trigger behavior upon CLI launch *(default: true)* |
-| `updater.max_lines` | `int` | Maximum items displayed per page in interactive mode *(default: 50)* |
+| `updater.max-lines` | `int` | Maximum items displayed per page in interactive mode *(default: 50)* |
 
 ---
 
