@@ -16,3 +16,6 @@ Thumbs.db
 *.orig
 *.rej
 *.bk
+
+# .rrduconfig
+.rrduconfig
