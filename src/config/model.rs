@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use core::panic;
+use std::path::{Component, Path, PathBuf};
 
 use noyalib::{ParserConfig, SerializerConfig};
 use serde::{Deserialize, Serialize};
@@ -24,16 +25,17 @@ impl ProjectConfig {
         self.exclude.push(dep);
     }
 
-    pub fn serialize_deps(&self) -> String {
-        // TODO: Serializing logic
-        let serializer_config: SerializerConfig = SerializerConfig::new().quote_all(false);
-        let serialized_project: String =
-            noyalib::to_string_with_config(self, &serializer_config).unwrap();
-        serialized_project
-    }
-
-    pub fn deserialize_deps(&mut self) {
-        // TODO: Deserializing logic
+    pub fn validate_path(&self) -> bool {
+        let path = Path::new(&self.toml);
+        for path_comp in path.components() {
+            match path_comp {
+                Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                    return false;
+                }
+                _ => {}
+            }
+        }
+        true
     }
 }
 
@@ -73,14 +75,6 @@ impl Default for UpdaterConfig {
 }
 
 impl UpdaterConfig {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn load(loaded: Self) -> Self {
-        loaded
-    }
-
     pub fn exclude_project(&mut self, project: String) {
         self.exclude.push(project);
     }
@@ -165,14 +159,20 @@ impl RrduConfig {
         // Load the .rrduconfig file and return it as a string
         match std::fs::File::open(Self::retreive_config_path()) {
             Ok(content) => {
-                // unwarp as error already tracked.
                 let reader: std::io::BufReader<std::fs::File> = std::io::BufReader::new(content);
                 let deserializer_config = ParserConfig::new();
                 match noyalib::from_reader_with_config::<std::io::BufReader<std::fs::File>, Self>(
                     reader,
                     &deserializer_config,
                 ) {
-                    Ok(yaml) => yaml,
+                    Ok(yaml) => {
+                        for project in &yaml.workspace {
+                            if !project.validate_path() {
+                                panic!("Traverse found in toml folder {:?}", project.project)
+                            };
+                        }
+                        yaml
+                    }
                     Err(e) => {
                         println!(
                             "Could not deserialize yaml file. {:#?}\nPlease review your .rrduconfig.",
@@ -187,5 +187,133 @@ impl RrduConfig {
                 Self::init()
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test_project_config {
+    use super::*;
+
+    #[test]
+    fn test_validate_path_valid_relative_paths() {
+        let valid_paths = [
+            "./",
+            "./Cargo.toml",
+            "./crates/my_crate",
+            "crates/sub_project/Cargo.toml",
+            "sub_project",
+        ];
+
+        for path in valid_paths {
+            let project = ProjectConfig::new("test".to_string(), path.to_string());
+            assert!(
+                project.validate_path(),
+                "Expected valid path '{path}' to pass validation"
+            );
+        }
+    }
+
+    #[test]
+    fn test_validate_path_rejects_parent_traversal() {
+        let traversal_paths = [
+            "../",
+            "../Cargo.toml",
+            "./crates/../../secret",
+            "crates/../..",
+            "crates/sub/../../../etc",
+        ];
+
+        for path in traversal_paths {
+            let project = ProjectConfig::new("test".to_string(), path.to_string());
+            assert!(
+                !project.validate_path(),
+                "Expected traversal path '{path}' to fail validation"
+            );
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_validate_path_rejects_root_and_prefix() {
+        let absolute_paths = ["/", "/etc/passwd", "/home/user/project"];
+
+        for path in absolute_paths {
+            let project = ProjectConfig::new("test".to_string(), path.to_string());
+            assert!(
+                !project.validate_path(),
+                "Expected absolute/root path '{path}' to fail validation"
+            );
+        }
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn test_validate_path_rejects_root_and_prefix() {
+        let absolute_paths = ["C:\\", "C:\\Windows\\System32", "D:\\"];
+
+        for path in absolute_paths {
+            let project = ProjectConfig::new("test".to_string(), path.to_string());
+            assert!(
+                !project.validate_path(),
+                "Expected absolute/root path '{path}' to fail validation"
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod test_rrdu_config {
+    use super::*;
+
+    #[test]
+    fn test_project_config_exclude_dep() {
+        let mut project = ProjectConfig::new("Core".to_string(), "./crates/core".to_string());
+        assert!(project.exclude.is_empty());
+
+        project.exclude_dep("tokio".to_string());
+        project.exclude_dep("serde".to_string());
+
+        assert_eq!(project.exclude, vec!["tokio", "serde"]);
+    }
+
+    #[test]
+    fn test_updater_config_defaults_and_exclude() {
+        let mut updater = UpdaterConfig::default();
+        assert_eq!(updater.auto_update, "none");
+        assert!(updater.auto_scan);
+        assert_eq!(updater.max_lines, 50);
+        assert!(updater.exclude.is_empty());
+
+        updater.exclude_project("crates/vendor".to_string());
+        assert_eq!(updater.exclude, vec!["crates/vendor"]);
+    }
+
+    #[test]
+    fn test_rrdu_config_add_workspace() {
+        let mut config = RrduConfig::default();
+        assert!(config.workspace.is_empty());
+
+        config.add_workspace("App".to_string(), "./".to_string());
+        assert_eq!(config.workspace.len(), 1);
+        assert_eq!(config.workspace[0].project, "App");
+        assert_eq!(config.workspace[0].toml, "./");
+    }
+
+    #[test]
+    fn test_yaml_in_memory_roundtrip() {
+        let mut original = RrduConfig::default();
+        original.add_workspace("Root".to_string(), "./".to_string());
+        original.updater.exclude_project("test_dir".to_string());
+
+        let mut buffer = Vec::new();
+        let serializer_cfg = SerializerConfig::new().quote_all(false);
+        noyalib::to_writer_with_config(&mut buffer, &original, &serializer_cfg)
+            .expect("Failed to serialize config into buffer");
+
+        let parser_cfg = ParserConfig::new();
+        let parsed: RrduConfig = noyalib::from_reader_with_config(&buffer[..], &parser_cfg)
+            .expect("Failed to deserialize config from buffer");
+
+        assert_eq!(original, parsed);
     }
 }
