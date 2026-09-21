@@ -38,18 +38,18 @@ This document serves as the central engineering specification, architecture manu
 - **Specification:**
   ```yaml
   workspace:
-    - project: "Root"
-      toml: "./"
+    - project: Root
+      toml: ./
       exclude:
-        - "tokio"
-        - "serde"
-    - project: "WorkspaceCrate"
-      toml: "./crates/workspace_crate/"
+        - tokio
+        - serde
+    - project: WorkspaceCrate
+      toml: crates/workspace_crate
   
   updater:
     exclude:
-      - "./excluded_folder/"
-    auto-update: "none"
+      - excluded_folder
+    auto-update: none
     auto-scan: true
     max_lines: 50
   ```
@@ -267,11 +267,11 @@ rust-recursive-deps-updater/
 - [x] Finalize official user documentation in `README.md` and project assets.
 
 ### Phase 1: Configuration Layer (`.rrduconfig`) & `init` Command
-- [ ] Implement `src/config/model.rs` defining `RrduConfig`, `ProjectConfig`, and `UpdaterConfig`.
-- [ ] Implement YAML parsing via `noyalib` with comprehensive error mapping to `ConfigError`.
-- [ ] Implement path canonicalization and path traversal validation (rejecting `../` and root `/`).
-- [ ] Implement `rrdu init` generator creating a fully-commented `.rrduconfig` template with overwrite protection.
-- [ ] Unit tests for configuration parsing, default values, and path validation.
+- [x] Implement `src/config/model.rs` defining `RrduConfig`, `ProjectConfig`, and `UpdaterConfig`.
+- [x] Implement YAML parsing via `noyalib` with comprehensive error mapping to `ConfigError`.
+- [x] Implement path canonicalization and path traversal validation (rejecting `../` and root `/`).
+- [x] Implement `rrdu init` generator creating a fully-commented `.rrduconfig` template with overwrite protection.
+- [x] Unit tests for configuration parsing, default values, and path validation.
 
 ### Phase 2: Workspace & Sub-Crate Discovery Engine (`workspace`)
 - [ ] Implement `src/workspace/project.rs` for crate and dependency representation.

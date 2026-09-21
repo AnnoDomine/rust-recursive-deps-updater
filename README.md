@@ -47,7 +47,7 @@ Download the latest pre-compiled binary from [GitHub Releases](https://github.co
 
 ### Via Cargo
 ```sh
-cargo install rrdu
+cargo install rust-recursive-deps-updater
 ```
 
 ### GitHub Marketplace Action
@@ -76,7 +76,7 @@ rrdu
 ### 2. Configuration Initialization
 Generate a tailored, documented `.rrduconfig` file by scanning the workspace:
 ```sh
-rrdu init
+rrdu --init
 ```
 
 ### 3. Headless CI / Automation Mode
@@ -92,19 +92,19 @@ rrdu --run=full
 ### 4. Self-Update
 Check for newer releases on GitHub and update the installed binary in-place:
 ```sh
-rrdu self-update
+rrdu --self-update
 ```
 
 ### 5. Diagnostics & Bug Report
 Generate an anonymized diagnostic report to paste into GitHub issues (paths are strictly sanitized to protect privacy):
 ```sh
-rrdu report
+rrdu --report
 ```
 
 ### 6. Command Help
 Display a formatted reference of all available commands, options, and descriptions:
 ```sh
-rrdu help
+rrdu --help
 ```
 
 ---
@@ -115,18 +115,18 @@ You can place an optional `.rrduconfig` file in your repository root to configur
 
 ```yaml
 workspace:
-  - project: "Root"
-    toml: "./"
+  - project: Root
+    toml: ./
     exclude:
-      - "tokio"
-      - "serde"
-  - project: "WorkspaceCrate"
-    toml: "./crates/workspace_crate/"
+      - tokio
+      - serde
+  - project: WorkspaceCrate
+    toml: crates/workspace_crate
 
 updater:
   exclude:
-    - "./excluded_folder/"
-  auto-update: "none" # Options: "none", "*", "*-force"
+    - excluded_folder
+  auto-update: none   # Options: "none", "*", "*-force"
   auto-scan: true     # Options: true, false, or list of project names
   max_lines: 50       # Maximum entries per page during interactive pagination
 ```
@@ -136,7 +136,7 @@ updater:
 | Setting | Type | Description |
 |---|---|---|
 | `workspace.project` | `string` | Human-readable name of the project |
-| `workspace.toml` | `path` | Path to the directory containing `Cargo.toml` (e.g. `./`, `./crates/foo`) |
+| `workspace.toml` | `path` | Path to the directory containing `Cargo.toml` (e.g. `./`, `./crates/foo`, `crates/bar`) |
 | `workspace.exclude` | `list` | Crate names excluded from updates for this project *(optional)* |
 | `updater.exclude` | `list` | Folders to completely skip during recursive scans *(optional)* |
 | `updater.auto-update` | `string` | Default update behavior for `--run=full` (`none`, `*`, `*-force`) |
