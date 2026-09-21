@@ -1,8 +1,9 @@
-use core::panic;
 use std::path::{Component, Path, PathBuf};
 
 use noyalib::{ParserConfig, SerializerConfig};
 use serde::{Deserialize, Serialize};
+
+use crate::config::ConfigError;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProjectConfig {
@@ -107,7 +108,7 @@ impl RrduConfig {
     pub fn new() -> Self {
         // Check if a config is already generated.
         // If no config could be loaded, return the initialised config without save it.
-        Self::load_config()
+        Self::load_config().unwrap_or_else(|_| Self::init())
     }
 
     pub fn init() -> Self {
@@ -118,7 +119,10 @@ impl RrduConfig {
 
     pub fn create_config() -> Self {
         let new_config = Self::init();
-        new_config.save_config();
+        let res = new_config.save_config();
+        if res.is_err() {
+            println!("Error: {:?}", res);
+        }
         new_config
     }
 
@@ -131,62 +135,38 @@ impl RrduConfig {
         // TODO: Implement discovery and apply it here to auto fill workspace for non file configurated workspace
     }
 
-    fn retreive_config_path() -> PathBuf {
-        let mut config_file = match std::env::current_dir() {
-            Ok(p) => p,
-            // We take use of the default error from rust when retreive the current directory.
-            // Possible errors are:
-            // - Directory does not exist.
-            // - No permission to acces the current directory.
-            Err(e) => panic!("{:?}", e),
-        };
+    fn retreive_config_path() -> Result<PathBuf, ConfigError> {
+        let mut config_file = std::env::current_dir()?;
         config_file.push(Self::CONFIG_FILE_NAME);
-        config_file
+        Ok(config_file)
     }
 
-    fn save_config(&self) {
+    fn save_config(&self) -> Result<(), ConfigError> {
         // Stores the configuration
         let serializer_config: SerializerConfig = SerializerConfig::new().quote_all(false);
-        let file = match std::fs::File::create(Self::retreive_config_path()) {
-            Ok(w) => w,
-            Err(_) => panic!("Cound not create config file!"),
-        };
+        let path = Self::retreive_config_path()?;
+        let file = std::fs::File::create(path)?;
         let writer = std::io::BufWriter::new(file);
         let _ = noyalib::to_writer_with_config(writer, self, &serializer_config);
+        Ok(())
     }
 
-    fn load_config() -> Self {
+    fn load_config() -> Result<Self, ConfigError> {
+        let path = Self::retreive_config_path()?;
         // Load the .rrduconfig file and return it as a string
-        match std::fs::File::open(Self::retreive_config_path()) {
-            Ok(content) => {
-                let reader: std::io::BufReader<std::fs::File> = std::io::BufReader::new(content);
-                let deserializer_config = ParserConfig::new();
-                match noyalib::from_reader_with_config::<std::io::BufReader<std::fs::File>, Self>(
-                    reader,
-                    &deserializer_config,
-                ) {
-                    Ok(yaml) => {
-                        for project in &yaml.workspace {
-                            if !project.validate_path() {
-                                panic!("Traverse found in toml folder {:?}", project.project)
-                            };
-                        }
-                        yaml
-                    }
-                    Err(e) => {
-                        println!(
-                            "Could not deserialize yaml file. {:#?}\nPlease review your .rrduconfig.",
-                            e
-                        );
-                        Self::init()
-                    }
-                }
-            }
-            Err(_) => {
-                println!("No config file found. Using default!");
-                Self::init()
+        let content = std::fs::File::open(path)?;
+        let reader: std::io::BufReader<std::fs::File> = std::io::BufReader::new(content);
+        let deserializer_config = ParserConfig::new();
+        let yaml = noyalib::from_reader_with_config::<std::io::BufReader<std::fs::File>, Self>(
+            reader,
+            &deserializer_config,
+        )?;
+        for project in &yaml.workspace {
+            if !project.validate_path() {
+                return Err(ConfigError::InsecurePath(PathBuf::from(&project.toml)));
             }
         }
+        Ok(yaml)
     }
 }
 
