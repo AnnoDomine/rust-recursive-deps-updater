@@ -25,7 +25,8 @@
 
 ---
 
-> This project is currently in an early state. The current version can have breaking changes.
+> This project is currently in an early state. The current version can have breaking changes.  
+> We provide an explaining [migration guide](./MIGRATION.md).
 
 ## Features
 
@@ -116,12 +117,13 @@ You can place an optional `.rrduconfig` file in your repository root to configur
 ```yaml
 workspace:
   - project: Root
-    toml: ./
+    path: ./
     exclude:
       - tokio
       - serde
   - project: WorkspaceCrate
-    toml: crates/workspace_crate
+    path: crates/workspace_crate
+    sub-config: true
 
 updater:
   exclude:
@@ -129,6 +131,7 @@ updater:
   auto-update: none   # Options: "none", "*", "*-force"
   auto-scan: true     # Options: true, false, or list of project names
   max-lines: 50       # Maximum entries per page during interactive pagination
+  version: 0.0.3      # Version where the config file was created
 ```
 
 ### Configuration Options
@@ -136,12 +139,26 @@ updater:
 | Setting | Type | Description |
 |---|---|---|
 | `workspace.project` | `string` | Human-readable name of the project |
-| `workspace.toml` | `path` | Path to the directory containing `Cargo.toml` (e.g. `./`, `./crates/foo`, `crates/bar`) |
+| `workspace.path` | `path` | Path to the directory containing `Cargo.toml` (e.g. `./`, `./crates/foo`, `crates/bar`) |
 | `workspace.exclude` | `list` | Crate names excluded from updates for this project *(optional)* |
+| `workspace.sub-config` | `bool` | Set to `true` if the sub-project provides its own `.rrduconfig` *(default: false)* |
 | `updater.exclude` | `list` | Folders to completely skip during recursive scans *(optional)* |
 | `updater.auto-update` | `string` | Default update behavior for `--run=full` (`none`, `*`, `*-force`) |
 | `updater.auto-scan` | `bool \| list` | Scan trigger behavior upon CLI launch *(default: true)* |
 | `updater.max-lines` | `int` | Maximum items displayed per page in interactive mode *(default: 50)* |
+| `updater.version` | `string` | Version of rrdu the config was created with, used for compatibility checks |
+
+---
+
+### Naming convention
+
+Our definitions following a specified naming convention to remove confusion.
+
+- **`scan`**: A `scan` names the flow to collect and scan dependencies for update check.
+- **`discovery`**: `discoveries` are crawling to the workspace folder and the sub folders to identify `Cargo.toml` and `.rrduconfig` files.
+- **`update`**: The `update` process is the flow to update the `Cargo.toml` dependencies.
+- **`workspace`**: A workspace is the identification list of projects based on the related `.rrduconfig`. It is identified by the placement of the `.rrduconfig`.
+- **`project`**: `projects` are single identified `Cargo.toml` and `.rrduconfig` files.
 
 ---
 
