@@ -1,24 +1,69 @@
-use std::path::{Component, Path, PathBuf};
+use std::{
+    env,
+    path::{Component, Path, PathBuf},
+};
 
 use noyalib::{ParserConfig, SerializerConfig};
 use serde::{Deserialize, Serialize};
 
 use crate::config::ConfigError;
 
+/// Identifier if a sub project configuration is present.
+///
+/// Possible values:
+/// - true -> Sub config file is in same folder as Cargo.toml
+/// - false -> No sub config file present, but Cargo.toml
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(untagged)]
+pub enum SubConfig {
+    #[default]
+    None,
+    Bool(bool),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct ProjectConfig {
+    /// Name of the project.
+    /// Can be:
+    /// - `name` key from Cargo.toml
+    /// - Last folder from the discovery, if it is a sub-config project
     pub project: String,
-    pub toml: String,
+    /// Path to `Cargo.toml` of `.rrduconfig` if sub-config
+    #[serde(alias = "toml")]
+    pub path: String,
     #[serde(default)]
+    /// List of dependencies excluded from updating
     pub exclude: Vec<String>,
+    #[serde(default)]
+    /// Identifier, if the project is a `.rrduconfig` link
+    pub sub_config: SubConfig,
 }
 
 impl ProjectConfig {
-    pub fn new(project: String, toml: String) -> Self {
+    pub fn new(project: String, path: String) -> Self {
         Self {
             project,
-            toml,
+            path,
             exclude: Vec::new(),
+            sub_config: SubConfig::default(),
+        }
+    }
+
+    pub fn define_sub_config(&mut self, sub_config: SubConfig) {
+        self.sub_config = sub_config;
+    }
+
+    pub fn get_sub_config_path(&self) -> Option<PathBuf> {
+        let path = match &self.sub_config {
+            SubConfig::Bool(true) => PathBuf::from(&self.path).join(".rrduconfig"),
+            _ => return None,
+        };
+
+        if Self::validate_path(&path) {
+            Some(path)
+        } else {
+            None
         }
     }
 
@@ -26,8 +71,12 @@ impl ProjectConfig {
         self.exclude.push(dep);
     }
 
-    pub fn validate_path(&self) -> bool {
-        let path = Path::new(&self.toml);
+    pub fn validate_project_path(&self) -> bool {
+        let path = Path::new(&self.path);
+        Self::validate_path(path)
+    }
+
+    pub fn validate_path(path: &Path) -> bool {
         for path_comp in path.components() {
             match path_comp {
                 Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
@@ -43,14 +92,21 @@ impl ProjectConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct UpdaterConfig {
+    /// List of excluded projects from the workspace list
     #[serde(default)]
     pub exclude: Vec<String>,
+    /// Automatic update all dependencies (excludes these ones from the project defined excluded and excluded projects)
     #[serde(default = "default_auto_update")]
     pub auto_update: String,
+    /// Automatic scan for updates of dependencies (excludes these ones from the project defined excluded and excluded projects)
     #[serde(default = "default_auto_scan")]
     pub auto_scan: bool,
+    /// Scroll area for interactive CLI (does not affect CI mode)
     #[serde(default = "default_max_lines")]
     pub max_lines: usize,
+    /// Version where the `.rrduconfig` was created.
+    #[serde(default)]
+    pub version: Option<String>,
 }
 
 /// Default value for updater
@@ -63,6 +119,10 @@ fn default_auto_scan() -> bool {
 fn default_max_lines() -> usize {
     50
 }
+pub fn get_rrdu_version() -> String {
+    let current = env!("CARGO_PKG_VERSION");
+    String::from(current)
+}
 
 impl Default for UpdaterConfig {
     fn default() -> Self {
@@ -71,6 +131,7 @@ impl Default for UpdaterConfig {
             auto_update: default_auto_update(),
             auto_scan: default_auto_scan(),
             max_lines: default_max_lines(),
+            version: Some(get_rrdu_version()),
         }
     }
 }
@@ -83,14 +144,49 @@ impl UpdaterConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RrduConfig {
+    /// List of workspaces based on the `.rrduconfig` fodler
     #[serde(default = "default_root_project")]
     pub workspace: Vec<ProjectConfig>,
+    /// Updater configuration
     #[serde(default)]
     pub updater: UpdaterConfig,
 }
 
 fn default_root_project() -> Vec<ProjectConfig> {
     vec![]
+}
+
+pub enum ConfigCompatibility {
+    /// Version of config is compatible with the current running/installed version
+    Compatible,
+    /// Config have no version specified
+    LegacyMissingVersion,
+    /// Version of config is outdated
+    OutdatedVersion(semver::Version, semver::Version),
+    /// Version of running rrdu is older than config version
+    IncompatibleFutureVersion(semver::Version),
+}
+
+pub fn check_config_compatibility(config: &RrduConfig) -> ConfigCompatibility {
+    let Some(raw_version) = &config.updater.version else {
+        return ConfigCompatibility::LegacyMissingVersion;
+    };
+
+    let Ok(config_ver) = semver::Version::parse(raw_version) else {
+        return ConfigCompatibility::LegacyMissingVersion;
+    };
+
+    let min_supported = semver::Version::new(0, 0, 3);
+    let installed = semver::Version::parse(env!("CARGO_PKG_VERSION"))
+        .unwrap_or_else(|_| semver::Version::new(0, 0, 0));
+
+    if config_ver < min_supported {
+        ConfigCompatibility::OutdatedVersion(config_ver, min_supported)
+    } else if config_ver > installed {
+        ConfigCompatibility::IncompatibleFutureVersion(config_ver)
+    } else {
+        ConfigCompatibility::Compatible
+    }
 }
 
 impl Default for RrduConfig {
@@ -126,8 +222,8 @@ impl RrduConfig {
         new_config
     }
 
-    pub fn add_workspace(&mut self, project: String, toml: String) {
-        let _ = &self.workspace.push(ProjectConfig::new(project, toml));
+    pub fn add_workspace(&mut self, project: String, path: String) {
+        let _ = &self.workspace.push(ProjectConfig::new(project, path));
     }
 
     fn discover_workspace(&mut self) {
@@ -157,22 +253,43 @@ impl RrduConfig {
         Ok(())
     }
 
-    fn load_config() -> Result<Self, ConfigError> {
-        let path = Self::retreive_config_path()?;
-        // Load the .rrduconfig file and return it as a string
+    /// Loads and parses an `.rrduconfig` from a specific file path (relative or absolute).
+    pub fn load_from_path<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
         let content = std::fs::File::open(path)?;
-        let reader: std::io::BufReader<std::fs::File> = std::io::BufReader::new(content);
+        let reader = std::io::BufReader::new(content);
         let deserializer_config = ParserConfig::new();
         let yaml = noyalib::from_reader_with_config::<std::io::BufReader<std::fs::File>, Self>(
             reader,
             &deserializer_config,
         )?;
+
         for project in &yaml.workspace {
-            if !project.validate_path() {
-                return Err(ConfigError::InsecurePath(PathBuf::from(&project.toml)));
+            if !project.validate_project_path() {
+                return Err(ConfigError::InsecurePath(PathBuf::from(&project.path)));
             }
         }
-        Ok(yaml)
+
+        match check_config_compatibility(&yaml) {
+            ConfigCompatibility::Compatible => Ok(yaml),
+            ConfigCompatibility::LegacyMissingVersion => Err(ConfigError::LegacyConfiguration),
+            ConfigCompatibility::OutdatedVersion(found, required) => {
+                Err(ConfigError::IncompatibleVersion {
+                    found: found.to_string(),
+                    required: required.to_string(),
+                })
+            }
+            ConfigCompatibility::IncompatibleFutureVersion(found) => {
+                Err(ConfigError::IncompatibleVersion {
+                    found: found.to_string(),
+                    required: format!("<= {}", env!("CARGO_PKG_VERSION")),
+                })
+            }
+        }
+    }
+
+    fn load_config() -> Result<Self, ConfigError> {
+        let path = Self::retreive_config_path()?;
+        Self::load_from_path(path)
     }
 }
 
@@ -193,7 +310,7 @@ mod test_project_config {
         for path in valid_paths {
             let project = ProjectConfig::new("test".to_string(), path.to_string());
             assert!(
-                project.validate_path(),
+                project.validate_project_path(),
                 "Expected valid path '{path}' to pass validation"
             );
         }
@@ -212,7 +329,7 @@ mod test_project_config {
         for path in traversal_paths {
             let project = ProjectConfig::new("test".to_string(), path.to_string());
             assert!(
-                !project.validate_path(),
+                !project.validate_project_path(),
                 "Expected traversal path '{path}' to fail validation"
             );
         }
@@ -226,7 +343,7 @@ mod test_project_config {
         for path in absolute_paths {
             let project = ProjectConfig::new("test".to_string(), path.to_string());
             assert!(
-                !project.validate_path(),
+                !project.validate_project_path(),
                 "Expected absolute/root path '{path}' to fail validation"
             );
         }
@@ -240,7 +357,7 @@ mod test_project_config {
         for path in absolute_paths {
             let project = ProjectConfig::new("test".to_string(), path.to_string());
             assert!(
-                !project.validate_path(),
+                !project.validate_project_path(),
                 "Expected absolute/root path '{path}' to fail validation"
             );
         }
@@ -282,7 +399,7 @@ mod test_rrdu_config {
         config.add_workspace("App".to_string(), "./".to_string());
         assert_eq!(config.workspace.len(), 1);
         assert_eq!(config.workspace[0].project, "App");
-        assert_eq!(config.workspace[0].toml, "./");
+        assert_eq!(config.workspace[0].path, "./");
     }
 
     #[test]
