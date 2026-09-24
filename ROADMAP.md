@@ -9,6 +9,7 @@ This document serves as the central engineering specification, architecture manu
 `rust-recursive-deps-updater` (`rrdu`) is a fast, safe, zero-privilege CLI tool and GitHub Action tailored for developers and teams managing complex Rust workspaces and multi-crate repositories.
 
 ### Primary Objectives
+
 1. **Transparent Discovery:** Automatically discover all `Cargo.toml` manifests across cargo workspaces and nested standalone crates.
 2. **Deterministic Configuration:** Support `.rrduconfig` (YAML) to define project boundaries and fine-grained exclude lists.
 3. **Targeted Registry Queries:** Check dependencies exclusively against `crates.io` (git and path dependencies are intentionally ignored and skipped).
@@ -26,6 +27,7 @@ This document serves as the central engineering specification, architecture manu
 ## 2. Technical Architecture & Component Specification
 
 ### 2.1 Configuration Layer (`.rrduconfig` & GitHub Action)
+
 - **Format:** YAML 1.2, parsed via `noyalib` (pure Rust, `#![forbid(unsafe_code)]`, maintained drop-in replacement for `serde_yaml`).
 - **Standard Location:** Workspace root (`./.rrduconfig`).
 - **Custom Configuration:** The CLI accepts `--config-path=<path>` (strictly validated against path traversal).
@@ -36,36 +38,46 @@ This document serves as the central engineering specification, architecture manu
   - Strict path validation: Paths in `.rrduconfig` must point to the current directory (`./`) or internal subdirectories (e.g., `crates/...`).
   - Parent directory references (`../`) or absolute root paths (`/`) are rejected with `ConfigError::InsecurePath` and exit code `1`. No panics!
 - **Specification:**
+
   ```yaml
   workspace:
     - project: Root
-      toml: ./
+      path: ./
       exclude:
         - tokio
         - serde
     - project: WorkspaceCrate
-      toml: crates/workspace_crate
-  
+      path: crates/workspace_crate
+      sub-config: true
+
   updater:
     exclude:
       - excluded_folder
     auto-update: none
     auto-scan: true
     max-lines: 50
+    version: 0.0.3
   ```
-  - `workspace.project.exclude`: Optional list of crate names excluded from scan and update for this specific project.
+
+  - `workspace.project`: Human-readable name of the project.
+  - `workspace.path`: Relative path to the project directory or `Cargo.toml` (e.g., `./`, `crates/...`).
+  - `workspace.exclude`: Optional list of crate names excluded from scan and update for this specific project.
+  - `workspace.sub-config`: Optional boolean flag indicating whether the sub-project provides its own `.rrduconfig` (default: `false`).
   - `updater.exclude`: Optional folder paths ignored during recursive discovery.
   - `updater.auto-update`: Automated update strategy (`none`, `*`, `*-force`). Default: `"none"`.
   - `updater.auto-scan`: Automatic scan on interactive CLI startup (`true`, `false`, or list of project names). Default: `true`.
   - `updater.max-lines`: Maximum entries per page during interactive pagination. Default: `50`.
+  - `updater.version`: Schema version of the `.rrduconfig` used for compatibility checks and legacy configuration detection.
 
 ### 2.2 Workspace & Crate Discovery Engine
+
 - **Root Manifest Inspection:** Evaluates root `Cargo.toml` for `[workspace]` definitions and resolves `[workspace.members]` patterns (including globs like `crates/*`).
 - **Recursive Fallback:** If no root workspace is declared, recursively scans the directory tree to discover standalone sub-crates.
 - **Workspace Dependencies:** Resolves central `[workspace.dependencies]` and detects inherited dependencies in member crates (`dep = { workspace = true }`).
 - **Non-Workspace Projects:** Correctly categorizes and processes nested standalone crates that are not part of the root workspace.
 
 ### 2.3 Registry Client & SemVer Classification Engine
+
 - **Target Scope:** Strictly direct `crates.io` dependencies.
   - Git dependencies (`git = "..."`) and path dependencies (`path = "..."`) are explicitly skipped and ignored.
 - **Registry Communication:**
@@ -82,9 +94,11 @@ This document serves as the central engineering specification, architecture manu
     - `0.x.y` where only `y` changes (e.g., `0.5.3` -> `0.5.4`): Compatible -> `[No migration needed]`
 
 ### 2.4 CLI Binary & Execution Modes
+
 Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 
 #### Mode A: Interactive Terminal Interface (`rrdu`)
+
 - **Header & Version Notification:**
   - Displays current working directory and configuration status.
   - Asynchronously checks GitHub Releases for new `rrdu` versions. If an update is available, displays a non-blocking notification:
@@ -100,6 +114,7 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
   - `<crate>` / `<index>`: Updates an individual crate interactively.
 
 #### Mode B: Headless Scan (`rrdu --run=scan`)
+
 - Designed for CI/CD pipelines.
 - Requires `.rrduconfig`. If missing, terminates with exit code `1` and suggests running `rrdu init`.
 - Scans all configured projects and renders a clean 5-column table:
@@ -110,27 +125,33 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
   - `1`: Outdated dependencies found or execution error.
 
 #### Mode C: Headless Full Update (`rrdu --run=full`)
+
 - Executes non-interactive updates according to `updater.auto-update` in `.rrduconfig`.
 - Applies updates to manifests and exits with code `0` on success or `1` on error.
 
 #### Mode D: Configuration Generator (`rrdu init`)
+
 - Recursively scans the current directory, detects all `Cargo.toml` manifests, and generates a fully-commented `.rrduconfig` template.
 - If `.rrduconfig` already exists, prompts `Override [y/n]` to prevent accidental data loss.
 
 #### Mode E: Binary Self-Update (`rrdu self-update`)
+
 - Queries GitHub Releases API for the latest binary release matching the current OS architecture.
 - Replaces the running binary in user space without requiring root or administrator privileges.
 
 #### Mode F: Privacy-Sanitized Diagnostics (`rrdu report`)
+
 - Generates a sanitized diagnostic markdown summary for issue reporting:
   - System architecture, OS, Rust edition, `rrdu` version.
   - Discovered project names and dependency counts.
   - **Privacy Guarantee:** All absolute system paths, usernames, and sensitive home directory tokens are masked or stripped.
 
 #### Mode G: Reference Help (`rrdu help`, `rrdu --help`, `rrdu -h`)
+
 - Prints comprehensive CLI command documentation and flag reference.
 
 ### 2.5 Comment-Preserving Manifest Updater (`toml_edit`)
+
 - Utilizes `toml_edit` to perform in-place AST modifications on `Cargo.toml`.
 - Preserves 100% of user comments, formatting, indentation, and structure.
 - Handles standard string versions (`dep = "1.0"`), inline tables (`dep = { version = "1.0", features = [...] }`), and workspace dependencies (`[workspace.dependencies]`).
@@ -140,6 +161,7 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 ## 3. Engineering & Security Standards
 
 ### 3.1 Security & Zero-Privilege
+
 - **User-Space Operation:** Never requests or requires root or administrator privileges.
 - **100% Safe Rust:** `#![forbid(unsafe_code)]` enforced at crate root (`src/main.rs`). Zero unsafe code.
 - **Path Traversal Defense:** All input paths are canonicalized and checked against project root boundaries.
@@ -147,6 +169,7 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 - **Network Hardening:** Strict HTTPS, TLS 1.2/1.3, 10s timeouts, verified crates.io crawler User-Agent.
 
 ### 3.2 Code Quality & Error Handling
+
 - **Toolchain:** Rust Edition 2024, `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`.
 - **Error Types:** Domain-specific errors via `thiserror` (`ConfigError`, `WorkspaceError`, `RegistryError`, `UpdateError`).
 - **No Panics:** Production code paths forbid `unwrap()` and `expect()`.
@@ -156,6 +179,7 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
   - `2`: User cancellation (`/exit`, Ctrl+C).
 
 ### 3.3 Governance & Anti-Vibe-Coding Policy
+
 - **License:** GNU General Public License v3.0 (`GPL-3.0-or-later`).
 - **Conventional Commits:** Enforced on PR titles (`lint_pr.yml`) and local commits (`.githooks/commit-msg`).
 - **Anti-Bot Rule:** Autonomous bot PRs or unsolicited automated reviews are strictly prohibited.
@@ -233,26 +257,27 @@ rust-recursive-deps-updater/
 
 ## 5. Crate Dependencies Overview
 
-| Crate | Version Target | Purpose | Rationale |
-|---|---|---|---|
-| `clap` | `~4.5` (derive) | CLI Argument Parsing | Industry standard for robust CLI parsing (`init`, `--run=scan`, `--run=full`) |
-| `serde` | `~1.0` (derive) | Data Serialization | Struct serialization/deserialization |
-| `noyalib` | `latest` | YAML Parser | Pure Rust YAML 1.2 with `#![forbid(unsafe_code)]`, maintained drop-in for `serde_yaml` |
-| `toml_edit` | `latest` | Manifest Editor | Official Cargo-team AST parser preserving comments, whitespace, and formatting |
-| `semver` | `~1.0` | SemVer Logic | Rust core SemVer parser for accurate version comparison and breaking change checks |
-| `ureq` | `latest` (rustls) | HTTP Client | Synchronous, lightweight, memory-safe TLS without OpenSSL system dependencies |
-| `colored` | `latest` | Terminal Colors | Clean, intuitive ANSI color output for terminal interfaces |
-| `indicatif` | `latest` | Progress Indicators | Smooth spinners and progress indicators during background network queries |
-| `walkdir` | `latest` | Filesystem Discovery | Fast recursive filesystem traversal for standalone `Cargo.toml` discovery |
-| `thiserror` | `latest` | Error Handling | Ergonomic typed domain error hierarchies without panics |
-| *(native `std::fmt`)* | Built-in | Table Formatter | Zero-dependency 5-column table renderer in `src/cli/table.rs` |
-| `tempfile` | `latest` *(dev)* | Integration Testing | Isolated temporary workspaces for manifest modification verification |
+| Crate                 | Version Target    | Purpose              | Rationale                                                                              |
+| --------------------- | ----------------- | -------------------- | -------------------------------------------------------------------------------------- |
+| `clap`                | `~4.5` (derive)   | CLI Argument Parsing | Industry standard for robust CLI parsing (`init`, `--run=scan`, `--run=full`)          |
+| `serde`               | `~1.0` (derive)   | Data Serialization   | Struct serialization/deserialization                                                   |
+| `noyalib`             | `latest`          | YAML Parser          | Pure Rust YAML 1.2 with `#![forbid(unsafe_code)]`, maintained drop-in for `serde_yaml` |
+| `toml_edit`           | `latest`          | Manifest Editor      | Official Cargo-team AST parser preserving comments, whitespace, and formatting         |
+| `semver`              | `~1.0`            | SemVer Logic         | Rust core SemVer parser for accurate version comparison and breaking change checks     |
+| `ureq`                | `latest` (rustls) | HTTP Client          | Synchronous, lightweight, memory-safe TLS without OpenSSL system dependencies          |
+| `colored`             | `latest`          | Terminal Colors      | Clean, intuitive ANSI color output for terminal interfaces                             |
+| `indicatif`           | `latest`          | Progress Indicators  | Smooth spinners and progress indicators during background network queries              |
+| `walkdir`             | `latest`          | Filesystem Discovery | Fast recursive filesystem traversal for standalone `Cargo.toml` discovery              |
+| `thiserror`           | `latest`          | Error Handling       | Ergonomic typed domain error hierarchies without panics                                |
+| _(native `std::fmt`)_ | Built-in          | Table Formatter      | Zero-dependency 5-column table renderer in `src/cli/table.rs`                          |
+| `tempfile`            | `latest` _(dev)_  | Integration Testing  | Isolated temporary workspaces for manifest modification verification                   |
 
 ---
 
 ## 6. Implementation Roadmap & Phases
 
 ### Phase 0: Setup, Governance, CI/CD & Marketplace Infrastructure
+
 - [x] Create and clean Git repository.
 - [x] Configure GNU General Public License v3.0 (`LICENSE`).
 - [x] Establish governance documentation: `CODE_OF_CONDUCT.md`, `SECURITY.md`, `CONTRIBUTING.md`.
@@ -267,6 +292,7 @@ rust-recursive-deps-updater/
 - [x] Finalize official user documentation in `README.md` and project assets.
 
 ### Phase 1: Configuration Layer (`.rrduconfig`) & `init` Command
+
 - [x] Implement `src/config/model.rs` defining `RrduConfig`, `ProjectConfig`, and `UpdaterConfig`.
 - [x] Implement YAML parsing via `noyalib` with comprehensive error mapping to `ConfigError`.
 - [x] Implement path canonicalization and path traversal validation (rejecting `../` and root `/`).
@@ -274,6 +300,7 @@ rust-recursive-deps-updater/
 - [x] Unit tests for configuration parsing, default values, and path validation.
 
 ### Phase 2: Workspace & Sub-Crate Discovery Engine (`workspace`)
+
 - [ ] Implement `src/workspace/project.rs` for crate and dependency representation.
 - [ ] Implement `src/workspace/discovery.rs` parsing root `Cargo.toml` and resolving `[workspace.members]`.
 - [ ] Implement recursive directory search fallback for non-workspace crates using `walkdir`.
@@ -283,6 +310,7 @@ rust-recursive-deps-updater/
 - [ ] Unit tests for workspace discovery and member globbing.
 
 ### Phase 3: crates.io Registry Client & SemVer Engine (`registry`)
+
 - [ ] Implement `src/registry/client.rs` using `ureq` with `rustls` and strict timeouts.
 - [ ] Implement in-memory cache to avoid duplicate network queries.
 - [ ] Filter out yanked versions from registry responses.
@@ -292,6 +320,7 @@ rust-recursive-deps-updater/
 - [ ] Unit tests covering diverse SemVer comparison cases.
 
 ### Phase 4: Interactive CLI, Table Formatter & Headless Modes (`cli`)
+
 - [ ] Implement interactive banner, status presentation, and `indicatif` spinner.
 - [ ] Implement native zero-dependency table renderer in `src/cli/table.rs`.
 - [ ] Implement interactive pagination (`/next`, `/prev`, arrow keys, `updater.max-lines`).
@@ -303,6 +332,7 @@ rust-recursive-deps-updater/
 - [ ] Implement `rrdu help` / `--help` CLI documentation display.
 
 ### Phase 5: Comment-Preserving Manifest Updater (`updater`)
+
 - [ ] Implement `src/updater/toml_writer.rs` using `toml_edit`.
 - [ ] Support standard string versions (`dep = "1.0"`).
 - [ ] Support inline table dependencies (`dep = { version = "1.0", features = [...] }`).
@@ -311,6 +341,7 @@ rust-recursive-deps-updater/
 - [ ] Unit and fixture tests verifying comment preservation.
 
 ### Phase 6: End-to-End Verification, Fixtures & Release v0.1.0
+
 - [ ] Implement integration tests in `tests/` using `tempfile` against fixture workspaces.
 - [ ] Test headless CI runs (`--run=scan`, `--run=full`) on Linux and Windows.
 - [ ] Verify clean `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo test`.
@@ -319,6 +350,7 @@ rust-recursive-deps-updater/
 - [ ] Tag `v0.1.0` and trigger automated release workflow.
 
 ### Phase 7: Post-v0.1.0 Enhancements
+
 - [ ] Transition crates.io publishing to Trusted Publishing (OIDC) after the initial release.
 - [ ] Publish composite action to GitHub Marketplace.
 - [ ] Implement binary self-update (`rrdu self-update`) against GitHub Releases API.
