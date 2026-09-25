@@ -112,7 +112,7 @@ impl DependencyEntry {
     fn validate_version_definition(value: &Value) -> DependencyVersion {
         match value.as_str() {
             Some(s) => DependencyVersion::Supported(s.to_string()),
-            None => DependencyVersion::UnsupportedValue(value.to_string()),
+            None => DependencyVersion::UnsupportedValue(value.to_string().trim().to_string()),
         }
     }
 
@@ -184,6 +184,18 @@ impl DependencyEntry {
         }
     }
 
+    /// Helper to extract clean numeric SemVer from strings like "^1.2.3", "~0.3", "1.0"
+    fn parse_base_version(raw: &str) -> Option<semver::Version> {
+        let trimmed = raw.trim().trim_start_matches(|c: char| !c.is_ascii_digit());
+        let dot_count = trimmed.chars().filter(|&c| c == '.').count();
+        let normalized = match dot_count {
+            0 => format!("{}.0.0", trimmed),
+            1 => format!("{}.0", trimmed),
+            _ => trimmed.to_string(),
+        };
+        semver::Version::parse(&normalized).ok()
+    }
+
     /// Check if the current version is the latest and when, if the latest could be need a migration
     ///
     /// Return:
@@ -191,11 +203,49 @@ impl DependencyEntry {
     /// * needs_migration: Boolean
     ///
     /// `(Boolean, Boolean)`
-    pub fn check_if_latest(&self, _latest: &str) -> (Boolean, Boolean) {
-        // TODO: Check if installed version is latest
+    pub fn check_if_latest(&self, latest: &str) -> (Boolean, Boolean) {
+        let current_raw = match self.version() {
+            DependencyVersion::Supported(v) => v.as_str(),
+            _ => return (Boolean::True, Boolean::False),
+        };
 
-        // Fallback
-        (Boolean::False, Boolean::False)
+        let (Ok(req), Ok(latest_ver)) = (
+            semver::VersionReq::parse(current_raw),
+            semver::Version::parse(latest),
+        ) else {
+            return (Boolean::True, Boolean::False);
+        };
+
+        // If latest satisfies the current requirement, Cargo already resolves it
+        if req.matches(&latest_ver) {
+            return (Boolean::True, Boolean::False);
+        }
+
+        let Some(current_ver) = Self::parse_base_version(current_raw) else {
+            return (Boolean::True, Boolean::False);
+        };
+
+        if current_ver >= latest_ver {
+            return (Boolean::True, Boolean::False);
+        }
+
+        // Installed requirement does not cover latest -> is_latest = False
+        let needs_migration = if current_ver.major >= 1 {
+            latest_ver.major > current_ver.major
+        } else if current_ver.minor >= 1 {
+            latest_ver.major > 0 || latest_ver.minor > current_ver.minor
+        } else {
+            // In 0.0.x every bump is breaking
+            latest_ver != current_ver
+        };
+
+        let migration_bool = if needs_migration {
+            Boolean::True
+        } else {
+            Boolean::False
+        };
+
+        (Boolean::False, migration_bool)
     }
 }
 
@@ -248,4 +298,245 @@ pub struct Projects {
 pub struct Workspace {
     pub projects: Vec<Projects>,
     pub collected_deps: HashMap<String, Option<String>>,
+}
+
+#[cfg(test)]
+mod test_dependency_entry {
+    use super::*;
+    use toml_edit::DocumentMut;
+
+    #[test]
+    fn test_simple_dependency() {
+        let doc: DocumentMut = "colored = \"3.1.1\"".parse().expect("valid toml");
+        let item = &doc["colored"];
+        let entry = DependencyEntry::new("colored", item).expect("should parse");
+        assert_eq!(entry.toml_key(), "colored");
+        assert_eq!(entry.package(), "colored");
+        assert_eq!(
+            entry.version(),
+            &DependencyVersion::Supported("3.1.1".to_string())
+        );
+    }
+
+    #[test]
+    fn test_inline_dependencies() {
+        let toml = r#"
+    web-sys = { version = "0.3", features = ["Window"] }
+    my_serde = { package = "serde", version = "1.0.190" }
+    "#;
+        let doc: DocumentMut = toml.parse().expect("valid toml");
+        let entry1 = DependencyEntry::new("web-sys", &doc["web-sys"]).expect("should parse");
+        assert_eq!(entry1.toml_key(), "web-sys");
+        assert_eq!(entry1.package(), "web-sys");
+        assert_eq!(
+            entry1.version(),
+            &DependencyVersion::Supported("0.3".to_string())
+        );
+
+        let entry2 = DependencyEntry::new("my_serde", &doc["my_serde"]).expect("should parse");
+        assert_eq!(entry2.toml_key(), "my_serde");
+        assert_eq!(entry2.package(), "serde");
+        assert_eq!(
+            entry2.version(),
+            &DependencyVersion::Supported("1.0.190".to_string())
+        );
+    }
+
+    #[test]
+    fn test_table_dependencies() {
+        let toml = r#"
+    [dependencies.serde]
+    version = "1.0.0"
+    [dependencies.my_tokio]
+    package = "tokio"
+    version = "1.30.0"
+    "#;
+        let doc: DocumentMut = toml.parse().expect("valid toml");
+        let deps = &doc["dependencies"];
+        let entry1 = DependencyEntry::new("serde", &deps["serde"]).expect("should parse");
+        assert_eq!(entry1.toml_key(), "serde");
+        assert_eq!(entry1.package(), "serde");
+        assert_eq!(
+            entry1.version(),
+            &DependencyVersion::Supported("1.0.0".to_string())
+        );
+
+        let entry2 = DependencyEntry::new("my_tokio", &deps["my_tokio"]).expect("should parse");
+        assert_eq!(entry2.toml_key(), "my_tokio");
+        assert_eq!(entry2.package(), "tokio");
+        assert_eq!(
+            entry2.version(),
+            &DependencyVersion::Supported("1.30.0".to_string())
+        );
+    }
+
+    #[test]
+    fn test_unsupported_keys() {
+        let toml = r#"
+    git_dep = { git = "https://github.com/foo/bar" }
+    path_dep = { path = "../local_lib" }
+    registry_dep = { registry = "custom", version = "1.0" }
+    workspace_dep = { workspace = true }
+    multi_dep = { git = "https://example.com", path = "../foo" }
+    "#;
+        let doc: DocumentMut = toml.parse().expect("valid toml");
+        let g = DependencyEntry::new("git_dep", &doc["git_dep"]).expect("should parse");
+        assert_eq!(
+            g.version(),
+            &DependencyVersion::UnsupportedKeys {
+                keys: vec!["git".to_string()]
+            }
+        );
+        let p = DependencyEntry::new("path_dep", &doc["path_dep"]).expect("should parse");
+        assert_eq!(
+            p.version(),
+            &DependencyVersion::UnsupportedKeys {
+                keys: vec!["path".to_string()]
+            }
+        );
+        let r = DependencyEntry::new("registry_dep", &doc["registry_dep"]).expect("should parse");
+        assert_eq!(
+            r.version(),
+            &DependencyVersion::UnsupportedKeys {
+                keys: vec!["registry".to_string()]
+            }
+        );
+        let w = DependencyEntry::new("workspace_dep", &doc["workspace_dep"]).expect("should parse");
+        assert_eq!(
+            w.version(),
+            &DependencyVersion::UnsupportedKeys {
+                keys: vec!["workspace".to_string()]
+            }
+        );
+        let m = DependencyEntry::new("multi_dep", &doc["multi_dep"]).expect("should parse");
+        assert_eq!(
+            m.version(),
+            &DependencyVersion::UnsupportedKeys {
+                keys: vec!["git".to_string(), "path".to_string()]
+            }
+        );
+    }
+
+    #[test]
+    fn test_missing_required_and_unsupported_value() {
+        let toml = r#"
+    missing_ver = { features = ["Window"] }
+    invalid_val = { version = 123 }
+    "#;
+        let doc: DocumentMut = toml.parse().expect("valid toml");
+        let m = DependencyEntry::new("missing_ver", &doc["missing_ver"]).expect("should parse");
+        assert_eq!(
+            m.version(),
+            &DependencyVersion::MissingRequired {
+                fields: vec!["version".to_string()]
+            }
+        );
+        let inv = DependencyEntry::new("invalid_val", &doc["invalid_val"]).expect("should parse");
+        assert_eq!(
+            inv.version(),
+            &DependencyVersion::UnsupportedValue("123".to_string())
+        );
+    }
+
+    #[test]
+    fn test_check_if_latest_semver_rules() {
+        let make_dep = |ver: &str| -> DependencyEntry {
+            DependencyEntry::Simple(SimpleDependency {
+                toml_key: "test".to_string(),
+                version: DependencyVersion::Supported(ver.to_string()),
+            })
+        };
+
+        assert_eq!(
+            make_dep("1.2.0").check_if_latest("1.2.0"),
+            (Boolean::True, Boolean::False)
+        );
+
+        assert_eq!(
+            make_dep("^1.2.0").check_if_latest("1.2.5"),
+            (Boolean::True, Boolean::False)
+        );
+        assert_eq!(
+            make_dep("^1.2.0").check_if_latest("1.3.0"),
+            (Boolean::True, Boolean::False)
+        );
+
+        assert_eq!(
+            make_dep("^1.2.0").check_if_latest("2.0.0"),
+            (Boolean::False, Boolean::True)
+        );
+
+        assert_eq!(
+            make_dep("^0.1.2").check_if_latest("0.1.5"),
+            (Boolean::True, Boolean::False)
+        );
+        assert_eq!(
+            make_dep("^0.1.2").check_if_latest("0.2.0"),
+            (Boolean::False, Boolean::True)
+        );
+
+        assert_eq!(
+            make_dep("0.0.2").check_if_latest("0.0.3"),
+            (Boolean::False, Boolean::True)
+        );
+
+        assert_eq!(
+            make_dep("~1.2.0").check_if_latest("1.2.4"),
+            (Boolean::True, Boolean::False)
+        );
+        assert_eq!(
+            make_dep("~1.2.0").check_if_latest("1.3.0"),
+            (Boolean::False, Boolean::False)
+        );
+        assert_eq!(
+            make_dep("~1.2.0").check_if_latest("2.0.0"),
+            (Boolean::False, Boolean::True)
+        );
+    }
+
+    #[test]
+    fn test_get_dependency_row_valus() {
+        let make_dep = |ver: DependencyVersion| -> DependencyEntry {
+            DependencyEntry::Simple(SimpleDependency {
+                toml_key: "test".to_string(),
+                version: ver,
+            })
+        };
+
+        let up_to_date = make_dep(DependencyVersion::Supported("1.0.0".to_string()));
+        assert_eq!(
+            up_to_date.get_dependency_row_valus("1.0.0".to_string()),
+            (Boolean::True, Boolean::False, "1.0.0".to_string())
+        );
+
+        let outdated = make_dep(DependencyVersion::Supported("1.0.0".to_string()));
+        assert_eq!(
+            outdated.get_dependency_row_valus("2.0.0".to_string()),
+            (Boolean::False, Boolean::True, "1.0.0 -> 2.0.0".to_string())
+        );
+
+        let unsupported = make_dep(DependencyVersion::UnsupportedKeys {
+            keys: vec!["git".to_string()],
+        });
+        assert_eq!(
+            unsupported.get_dependency_row_valus("any".to_string()),
+            (
+                Boolean::True,
+                Boolean::False,
+                "Unsupported key: git".to_string()
+            )
+        );
+
+        let missing = make_dep(DependencyVersion::MissingRequired {
+            fields: vec!["version".to_string()],
+        });
+        assert_eq!(
+            missing.get_dependency_row_valus("any".to_string()),
+            (
+                Boolean::True,
+                Boolean::False,
+                "Missing: version".to_string()
+            )
+        );
+    }
 }
