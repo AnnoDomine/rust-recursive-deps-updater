@@ -39,35 +39,39 @@ This document serves as the central engineering specification, architecture manu
   - Parent directory references (`../`) or absolute root paths (`/`) are rejected with `ConfigError::InsecurePath` and exit code `1`. No panics!
 - **Specification:**
 
-  ```yaml
-  workspace:
-    - project: Root
-      path: ./
-      exclude:
-        - tokio
-        - serde
-    - project: WorkspaceCrate
-      path: crates/workspace_crate
-      sub-config: true
-
-  updater:
+```yaml
+workspace:
+  - project: Root
+    path: ./
     exclude:
-      - excluded_folder
-    auto-update: none
-    auto-scan: true
-    max-lines: 50
-    version: 0.0.3
-  ```
+      project: # Excludes all named dependencies project wide
+        - tokio
+      section: # Excludes all named dependencies from specific sections
+        dev-dependencies: # Only exclude named dependencies from [dev-dependencies] section
+          - serde
+        dependencies.clap: [] # Exclude [dependencies.clap] section in total. No values needed in the list, as the whole section is a single dependency.
+  - project: WorkspaceCrate
+    path: crates/workspace_crate
+    sub-config: true
 
-  - `workspace.project`: Human-readable name of the project.
-  - `workspace.path`: Relative path to the project directory or `Cargo.toml` (e.g., `./`, `crates/...`).
-  - `workspace.exclude`: Optional list of crate names excluded from scan and update for this specific project.
-  - `workspace.sub-config`: Optional boolean flag indicating whether the sub-project provides its own `.rrduconfig` (default: `false`).
-  - `updater.exclude`: Optional folder paths ignored during recursive discovery.
-  - `updater.auto-update`: Automated update strategy (`none`, `*`, `*-force`). Default: `"none"`.
-  - `updater.auto-scan`: Automatic scan on interactive CLI startup (`true`, `false`, or list of project names). Default: `true`.
-  - `updater.max-lines`: Maximum entries per page during interactive pagination. Default: `50`.
-  - `updater.version`: Schema version of the `.rrduconfig` used for compatibility checks and legacy configuration detection.
+updater:
+  exclude:
+    - excluded_project
+  auto-update: none # Options: "none", "*", "*-force"
+  auto-scan: true # Options: true, false, or list of project names
+  max-lines: 50 # Maximum entries per page during interactive pagination
+  version: 0.0.3 # Version where the config file was created
+```
+
+- `workspace.project`: Human-readable name of the project.
+- `workspace.path`: Relative path to the project directory or `Cargo.toml` (e.g., `./`, `crates/...`).
+- `workspace.exclude`: Fine-grained exclusion configuration with project-wide (project) and section-specific (section) scopes.
+- `workspace.sub-config`: Optional boolean flag indicating whether the sub-project provides its own `.rrduconfig` (default: `false`).
+- `updater.exclude`: Optional folder paths ignored during recursive discovery.
+- `updater.auto-update`: Automated update strategy (`none`, `*`, `*-force`). Default: `"none"`.
+- `updater.auto-scan`: Automatic scan on interactive CLI startup (`true`, `false`, or list of project names). Default: `true`.
+- `updater.max-lines`: Maximum entries per page during interactive pagination. Default: `50`.
+- `updater.version`: Schema version of the `.rrduconfig` used for compatibility checks and legacy configuration detection.
 
 ### 2.2 Workspace & Crate Discovery Engine
 
@@ -79,19 +83,19 @@ This document serves as the central engineering specification, architecture manu
 ### 2.3 Registry Client & SemVer Classification Engine
 
 - **Target Scope:** Strictly direct `crates.io` dependencies.
-  - Git dependencies (`git = "..."`) and path dependencies (`path = "..."`) are explicitly skipped and ignored.
+- Git dependencies (`git = "..."`) and path dependencies (`path = "..."`) are explicitly skipped and ignored.
 - **Registry Communication:**
-  - Uses `ureq` with `rustls` (synchronous, lightweight, memory-safe, no OpenSSL dependencies).
-  - Outgoing HTTP queries enforce a 10-second timeout, retry limits, and a compliant `User-Agent: rust-recursive-deps-updater/<version> (<url>)`.
-  - In-memory caching ensures identical crates across multiple manifests are queried only once per session.
-  - Yanked releases are filtered out and ignored.
+- Uses `ureq` with `rustls` (synchronous, lightweight, memory-safe, no OpenSSL dependencies).
+- Outgoing HTTP queries enforce a 10-second timeout, retry limits, and a compliant `User-Agent: rust-recursive-deps-updater/<version> (<url>)`.
+- In-memory caching ensures identical crates across multiple manifests are queried only once per session.
+- Yanked releases are filtered out and ignored.
 - **SemVer Rules for Migration Necessity:**
-  - **Version >= 1.0.0:**
-    - Patch or Minor bump (e.g., `1.2.0` -> `1.3.1`): `[No migration needed]`
-    - Major bump (e.g., `1.8.0` -> `2.0.0`): `[Need manual migration]`
-  - **Version < 1.0.0 (Pre-1.0 Cargo Convention):**
-    - `0.x.y` where `x` changes (e.g., `0.1.2` -> `0.2.0`): Breaking change -> `[Need manual migration]`
-    - `0.x.y` where only `y` changes (e.g., `0.5.3` -> `0.5.4`): Compatible -> `[No migration needed]`
+- **Version >= 1.0.0:**
+  - Patch or Minor bump (e.g., `1.2.0` -> `1.3.1`): `[No migration needed]`
+  - Major bump (e.g., `1.8.0` -> `2.0.0`): `[Need manual migration]`
+- **Version < 1.0.0 (Pre-1.0 Cargo Convention):**
+  - `0.x.y` where `x` changes (e.g., `0.1.2` -> `0.2.0`): Breaking change -> `[Need manual migration]`
+  - `0.x.y` where only `y` changes (e.g., `0.5.3` -> `0.5.4`): Compatible -> `[No migration needed]`
 
 ### 2.4 CLI Binary & Execution Modes
 
@@ -100,18 +104,18 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 #### Mode A: Interactive Terminal Interface (`rrdu`)
 
 - **Header & Version Notification:**
-  - Displays current working directory and configuration status.
-  - Asynchronously checks GitHub Releases for new `rrdu` versions. If an update is available, displays a non-blocking notification:
-    `A new version of rrdu is available (vX.Y.Z -> vA.B.C). Run 'rrdu self-update' to update.`
+- Displays current working directory and configuration status.
+- Asynchronously checks GitHub Releases for new `rrdu` versions. If an update is available, displays a non-blocking notification:
+  `A new version of rrdu is available (vX.Y.Z -> vA.B.C). Run 'rrdu self-update' to update.`
 - **Pagination & Navigation:**
-  - Projects and crates are paginated based on `updater.max-lines` (default 50).
-  - Navigation commands: `/next`, `/prev`, arrow keys (Up/Down/Left/Right).
-  - Global navigation: `/back` (return to previous view), `/exit` or `/quit` (exit process with code 2).
-  - Contextual Help: Typing `/?`, `/h`, or `/help` displays available commands and keyboard shortcuts.
+- Projects and crates are paginated based on `updater.max-lines` (default 50).
+- Navigation commands: `/next`, `/prev`, arrow keys (Up/Down/Left/Right).
+- Global navigation: `/back` (return to previous view), `/exit` or `/quit` (exit process with code 2).
+- Contextual Help: Typing `/?`, `/h`, or `/help` displays available commands and keyboard shortcuts.
 - **Update Execution:**
-  - `*`: Updates all compatible dependencies across the selected project (`[No migration needed]`).
-  - `*-force`: Updates all dependencies including breaking versions (`[Need manual migration]`).
-  - `<crate>` / `<index>`: Updates an individual crate interactively.
+- `*`: Updates all compatible dependencies across the selected project (`[No migration needed]`).
+- `*-force`: Updates all dependencies including breaking versions (`[Need manual migration]`).
+- `<crate>` / `<index>`: Updates an individual crate interactively.
 
 #### Mode B: Headless Scan (`rrdu --run=scan`)
 
@@ -121,8 +125,8 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
   `Project` | `Dependency` | `Current version` | `Latest version` | `Migration necessary` (`true` / `false` / empty)
 - Table is rendered natively in `src/cli/table.rs` using `std::fmt` (**Zero external dependencies**).
 - **Exit Codes:**
-  - `0`: All dependencies are up to date.
-  - `1`: Outdated dependencies found or execution error.
+- `0`: All dependencies are up to date.
+- `1`: Outdated dependencies found or execution error.
 
 #### Mode C: Headless Full Update (`rrdu --run=full`)
 
@@ -142,9 +146,9 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 #### Mode F: Privacy-Sanitized Diagnostics (`rrdu report`)
 
 - Generates a sanitized diagnostic markdown summary for issue reporting:
-  - System architecture, OS, Rust edition, `rrdu` version.
-  - Discovered project names and dependency counts.
-  - **Privacy Guarantee:** All absolute system paths, usernames, and sensitive home directory tokens are masked or stripped.
+- System architecture, OS, Rust edition, `rrdu` version.
+- Discovered project names and dependency counts.
+- **Privacy Guarantee:** All absolute system paths, usernames, and sensitive home directory tokens are masked or stripped.
 
 #### Mode G: Reference Help (`rrdu help`, `rrdu --help`, `rrdu -h`)
 
@@ -174,9 +178,9 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 - **Error Types:** Domain-specific errors via `thiserror` (`ConfigError`, `WorkspaceError`, `RegistryError`, `UpdateError`).
 - **No Panics:** Production code paths forbid `unwrap()` and `expect()`.
 - **Exit Codes:**
-  - `0`: Success (up to date or update completed).
-  - `1`: Failure / outdated dependencies during `--run=scan`.
-  - `2`: User cancellation (`/exit`, Ctrl+C).
+- `0`: Success (up to date or update completed).
+- `1`: Failure / outdated dependencies during `--run=scan`.
+- `2`: User cancellation (`/exit`, Ctrl+C).
 
 ### 3.3 Governance & Anti-Vibe-Coding Policy
 
@@ -184,73 +188,75 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 - **Conventional Commits:** Enforced on PR titles (`lint_pr.yml`) and local commits (`.githooks/commit-msg`).
 - **Anti-Bot Rule:** Autonomous bot PRs or unsolicited automated reviews are strictly prohibited.
 - **Anti-Vibe-Coding Policy:**
-  - AI may assist with fixing `cargo check` errors, drafting documentation, or small integrations up to 4 lines.
-  - Any larger full integration or bugfix generated by AI must terminate every single generated line with:
-    `// I am an AI and i am dumb`
+- AI may assist with fixing `cargo check` errors, drafting documentation, or small integrations up to 4 lines.
+- Any larger full integration or bugfix generated by AI must terminate every single generated line with:
+  `// I am an AI and i am dumb`
 
 ---
 
 ## 4. Module & Directory Layout
 
 ```
+
 rust-recursive-deps-updater/
 ├── .github/
-│   ├── workflows/
-│   │   ├── ci.yml               # Format, clippy, tests (Linux/Win), cargo-audit
-│   │   ├── lint_pr.yml          # Semantic PR title validation with sticky comments
-│   │   └── release.yml          # Cross-platform matrix release & crates.io publishing
-│   ├── ISSUE_TEMPLATE/
-│   │   ├── bug_report.md        # Bug template with rrdu report integration
-│   │   ├── feature_request.md   # Feature template with duplicate check
-│   │   └── config.yml           # Community links & blank issue disabling
-│   ├── copilot-instructions.md  # Copilot pointer to AGENTS.md
-│   └── pull_request_template.md # PR template with Human-In-The-Middle verification
+│ ├── workflows/
+│ │ ├── ci.yml # Format, clippy, tests (Linux/Win), cargo-audit
+│ │ ├── lint*pr.yml # Semantic PR title validation with sticky comments
+│ │ └── release.yml # Cross-platform matrix release & crates.io publishing
+│ ├── ISSUE_TEMPLATE/
+│ │ ├── bug_report.md # Bug template with rrdu report integration
+│ │ ├── feature_request.md # Feature template with duplicate check
+│ │ └── config.yml # Community links & blank issue disabling
+│ ├── copilot-instructions.md # Copilot pointer to AGENTS.md
+│ └── pull_request_template.md # PR template with Human-In-The-Middle verification
 ├── .githooks/
-│   ├── pre-commit               # Local formatting, linting, and test guard
-│   └── commit-msg               # Local Conventional Commits validator
+│ ├── pre-commit # Local formatting, linting, and test guard
+│ └── commit-msg # Local Conventional Commits validator
 ├── src/
-│   ├── main.rs                  # #![forbid(unsafe_code)], CLI dispatcher & exit codes
-│   ├── cli/                     # Interactive UI, prompts, table formatter, pagination
-│   │   ├── mod.rs
-│   │   ├── prompt.rs            # Interactive commands (*, *-force, crate selection)
-│   │   ├── display.rs           # Colored console output & progress spinners
-│   │   ├── table.rs             # Zero-dependency table renderer for --run=scan
-│   │   └── pagination.rs        # Pagination & scroll logic (/next, /prev, arrow keys)
-│   ├── config/                  # .rrduconfig data models & noyalib YAML parser
-│   │   ├── mod.rs
-│   │   └── model.rs             # Config structs, exclude evaluation, path validation
-│   ├── workspace/               # Cargo workspace & standalone crate discovery
-│   │   ├── mod.rs
-│   │   ├── discovery.rs         # Manifest search, glob resolution for workspace members
-│   │   └── project.rs           # Project models & dependency representation
-│   ├── registry/                # crates.io client & SemVer comparison
-│   │   ├── mod.rs
-│   │   ├── client.rs            # ureq HTTP client (rustls) with in-memory caching
-│   │   └── semver_check.rs      # SemVer comparison & breaking change classification
-│   ├── self_update/             # In-place binary self-update
-│   │   ├── mod.rs
-│   │   └── client.rs            # GitHub Releases querying & atomic binary replacement
-│   └── updater/                 # Manifest modification
-│       ├── mod.rs
-│       └── toml_writer.rs       # toml_edit writer preserving comments & layout
-├── tests/                       # Integration test suite & fixtures
-│   ├── config_tests.rs          # YAML parsing & path traversal validation tests
-│   ├── updater_tests.rs         # toml_edit comment preservation tests
-│   └── fixtures/                # Mock workspaces and multi-crate fixtures
-├── action.yml                   # Composite Action for GitHub Marketplace
-├── .cursorrules                 # Cursor IDE directive (points to AGENTS.md)
-├── .gitignore                   # Ignore rules for Cargo, OS, IDEs
-├── .windsurfrules               # Windsurf IDE directive (points to AGENTS.md)
-├── AGENTS.md                    # Single Source of Truth for AI assistants & developers
-├── CLAUDE.md                    # Claude Code directive (points to AGENTS.md)
-├── Cargo.toml                   # Crate metadata, dependencies, release profile
-├── CODE_OF_CONDUCT.md           # Contributor Covenant v2.1
-├── CONTRIBUTING.md               # Contributor workflow & anti-vibe-coding policy
-├── GEMINI.md                    # Gemini CLI directive (points to AGENTS.md)
-├── LICENSE                      # GNU General Public License v3.0 text
-├── README.md                    # Official user manual & documentation
-├── ROADMAP.md                   # This living roadmap & architecture specification
-└── SECURITY.md                  # Security policy & vulnerability reporting
+│ ├── main.rs # #![forbid(unsafe_code)], CLI dispatcher & exit codes
+│ ├── cli/ # Interactive UI, prompts, table formatter, pagination
+│ │ ├── mod.rs
+│ │ ├── prompt.rs # Interactive commands (*, \_-force, crate selection)
+│ │ ├── display.rs # Colored console output & progress spinners
+│ │ ├── table.rs # Zero-dependency table renderer for --run=scan
+│ │ └── pagination.rs # Pagination & scroll logic (/next, /prev, arrow keys)
+│ ├── config/ # .rrduconfig data models & noyalib YAML parser
+│ │ ├── mod.rs
+│ │ └── model.rs # Config structs, exclude evaluation, path validation
+│ ├── workspace/ # Cargo workspace & standalone crate discovery
+│ │ ├── mod.rs
+│ │ ├── discovery.rs # Manifest search, glob resolution for workspace members
+│ │ └── project.rs # Project models & dependency representation
+│ ├── registry/ # crates.io client & SemVer comparison
+│ │ ├── mod.rs
+│ │ ├── client.rs # ureq HTTP client (rustls) with in-memory caching
+│ │ └── semver_check.rs # SemVer comparison & breaking change classification
+│ ├── self_update/ # In-place binary self-update
+│ │ ├── mod.rs
+│ │ └── client.rs # GitHub Releases querying & atomic binary replacement
+│ └── updater/ # Manifest modification
+│ ├── mod.rs
+│ └── toml_writer.rs # toml_edit writer preserving comments & layout
+├── tests/ # Integration test suite & fixtures
+│ ├── config_tests.rs # YAML parsing & path traversal validation tests
+│ ├── updater_tests.rs # toml_edit comment preservation tests
+│ └── fixtures/ # Mock workspaces and multi-crate fixtures
+├── action.yml # Composite Action for GitHub Marketplace
+├── .cursorrules # Cursor IDE directive (points to AGENTS.md)
+├── .gitignore # Ignore rules for Cargo, OS, IDEs
+├── .windsurfrules # Windsurf IDE directive (points to AGENTS.md)
+├── AGENTS.md # Single Source of Truth for AI assistants & developers
+├── CLAUDE.md # Claude Code directive (points to AGENTS.md)
+├── Cargo.toml # Crate metadata, dependencies, release profile
+├── CODE_OF_CONDUCT.md # Contributor Covenant v2.1
+├── CONTRIBUTING.md # Contributor workflow & anti-vibe-coding policy
+├── GEMINI.md # Gemini CLI directive (points to AGENTS.md)
+├── LICENSE # GNU General Public License v3.0 text
+├── README.md # Official user manual & documentation
+├── ROADMAP.md # This living roadmap & architecture specification
+└── SECURITY.md # Security policy & vulnerability reporting
+
 ```
 
 ---
@@ -354,3 +360,7 @@ rust-recursive-deps-updater/
 - [ ] Transition crates.io publishing to Trusted Publishing (OIDC) after the initial release.
 - [ ] Publish composite action to GitHub Marketplace.
 - [ ] Implement binary self-update (`rrdu self-update`) against GitHub Releases API.
+
+```
+
+```

@@ -117,3 +117,33 @@ pub enum DependencySection {
         toml_key: String,
     },
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExcludeArea {
+    /// Project wide excluded dependencies
+    Project,
+    /// Section specified excluded dependencies
+    Section(DependencySection),
+}
+
+impl std::fmt::Display for DependencySection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Normal => write!(f, "dependencies"),
+            Self::Dev => write!(f, "dev-dependencies"),
+            Self::Build => write!(f, "build-dependencies"),
+            Self::Workspace => write!(f, "workspace.dependencies"),
+            Self::Target { target, kind } => {
+                let kind_str = match kind {
+                    TargetDepKind::Normal => "dependencies",
+                    TargetDepKind::Dev => "dev-dependencies",
+                    TargetDepKind::Build => "build-dependencies",
+                };
+                write!(f, "target.{target}.{kind_str}")
+            }
+            Self::Table { parent, toml_key } => {
+                write!(f, "{parent}.{toml_key}")
+            }
+        }
+    }
+}

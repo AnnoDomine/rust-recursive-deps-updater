@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     env,
     path::{Component, Path, PathBuf},
 };
@@ -6,7 +7,7 @@ use std::{
 use noyalib::{ParserConfig, SerializerConfig};
 use serde::{Deserialize, Serialize};
 
-use crate::config::ConfigError;
+use crate::{config::ConfigError, globals::*};
 
 /// Identifier if a sub project configuration is present.
 ///
@@ -21,6 +22,17 @@ pub enum SubConfig {
     Bool(bool),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub struct ExcludeConfig {
+    /// Project wide excluded dependencies
+    #[serde(default)]
+    pub project: Vec<String>,
+    /// Section specified excluded dependencies
+    #[serde(default)]
+    pub section: HashMap<String, Vec<String>>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ProjectConfig {
@@ -32,9 +44,8 @@ pub struct ProjectConfig {
     /// Path to `Cargo.toml` of `.rrduconfig` if sub-config
     #[serde(alias = "toml")]
     pub path: String,
-    #[serde(default)]
     /// List of dependencies excluded from updating
-    pub exclude: Vec<String>,
+    pub exclude: ExcludeConfig,
     #[serde(default)]
     /// Identifier, if the project is a `.rrduconfig` link
     pub sub_config: SubConfig,
@@ -45,7 +56,10 @@ impl ProjectConfig {
         Self {
             project,
             path,
-            exclude: Vec::new(),
+            exclude: ExcludeConfig {
+                project: Vec::new(),
+                section: HashMap::new(),
+            },
             sub_config: SubConfig::default(),
         }
     }
@@ -67,8 +81,28 @@ impl ProjectConfig {
         }
     }
 
-    pub fn exclude_dep(&mut self, dep: String) {
-        self.exclude.push(dep);
+    pub fn exclude_dep(&mut self, area: ExcludeArea, dep: String) {
+        match area {
+            ExcludeArea::Project => {
+                self.exclude.project.push(dep);
+            }
+            ExcludeArea::Section(sec) => self.format_section_dep(sec, dep),
+        }
+    }
+
+    fn format_section_dep(&mut self, sec: DependencySection, dep: String) {
+        match sec {
+            DependencySection::Table { .. } => {
+                self.exclude.section.entry(sec.to_string()).or_default();
+            }
+            _ => {
+                self.exclude
+                    .section
+                    .entry(sec.to_string())
+                    .or_default()
+                    .push(dep);
+            }
+        }
     }
 
     pub fn validate_project_path(&self) -> bool {
@@ -228,7 +262,7 @@ impl RrduConfig {
 
     fn discover_workspace(&mut self) {
         // Discover the workspace for Cargo.toml files
-        // TODO: Implement discovery and apply it here to auto fill workspace for non file configurated workspace
+        // TODO: Implement discovery and apply it here to auto fill workspace for initialisation
     }
 
     fn retreive_config_path() -> Result<PathBuf, ConfigError> {
@@ -371,12 +405,41 @@ mod test_rrdu_config {
     #[test]
     fn test_project_config_exclude_dep() {
         let mut project = ProjectConfig::new("Core".to_string(), "./crates/core".to_string());
-        assert!(project.exclude.is_empty());
+        assert!(project.exclude.project.is_empty());
+        assert!(project.exclude.section.is_empty());
 
-        project.exclude_dep("tokio".to_string());
-        project.exclude_dep("serde".to_string());
+        project.exclude_dep(ExcludeArea::Project, "tokio".to_string());
+        project.exclude_dep(ExcludeArea::Project, "serde".to_string());
 
-        assert_eq!(project.exclude, vec!["tokio", "serde"]);
+        project.exclude_dep(
+            ExcludeArea::Section(DependencySection::Dev),
+            "clap".to_string(),
+        );
+        project.exclude_dep(
+            ExcludeArea::Section(DependencySection::Dev),
+            "tokio".to_string(),
+        );
+        project.exclude_dep(
+            ExcludeArea::Section(DependencySection::Table {
+                parent: Box::new(DependencySection::Dev),
+                toml_key: "clap".to_string(),
+            }),
+            "clap".to_string(),
+        );
+
+        assert_eq!(project.exclude.project, vec!["tokio", "serde"]);
+        assert_eq!(
+            project.exclude.section[&DependencySection::Dev.to_string()],
+            vec!["clap", "tokio"]
+        );
+        assert_eq!(
+            project.exclude.section[&DependencySection::Table {
+                parent: Box::new(DependencySection::Dev),
+                toml_key: "clap".to_string(),
+            }
+            .to_string()],
+            Vec::<String>::new()
+        );
     }
 
     #[test]
