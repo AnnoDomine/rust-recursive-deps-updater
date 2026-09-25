@@ -1,9 +1,9 @@
 <div align="center">
   <img src="images/logo.jpg" alt="Rust Recursive Dependency Updater Logo" width="300" style="max-width: 300px;">
 
-  # Rust Recursive Dependency Updater (`rrdu`)
+# Rust Recursive Dependency Updater (`rrdu`)
 
-  **A fast, zero-privilege CLI tool and GitHub Action to inspect, navigate, and recursively update dependencies across Rust workspaces and multi-crate repositories.**
+**A fast, zero-privilege CLI tool and GitHub Action to inspect, navigate, and recursively update dependencies across Rust workspaces and multi-crate repositories.**
 
   <p>
     <a href="https://github.com/AnnoDomine/rust-recursive-deps-updater/actions"><img src="https://img.shields.io/github/actions/workflow/status/AnnoDomine/rust-recursive-deps-updater/ci.yml?branch=master&label=CI&logo=github" alt="CI Status"></a>
@@ -44,20 +44,24 @@
 ## Installation
 
 ### Pre-compiled Binaries (Linux & Windows)
+
 Download the latest pre-compiled binary from [GitHub Releases](https://github.com/AnnoDomine/rust-recursive-deps-updater/releases).
 
 ### Via Cargo
+
 ```sh
 cargo install rust-recursive-deps-updater
 ```
 
 ### GitHub Marketplace Action
+
 Include `rrdu` directly in your GitHub Actions workflows:
+
 ```yaml
 - name: Check Rust Dependencies
   uses: AnnoDomine/rust-recursive-deps-updater@v1
   with:
-    run: 'scan'
+    run: "scan"
 ```
 
 ---
@@ -65,23 +69,30 @@ Include `rrdu` directly in your GitHub Actions workflows:
 ## Usage
 
 ### 1. Interactive Mode
+
 Run `rrdu` inside your Rust workspace root without arguments:
+
 ```sh
 rrdu
 ```
+
 - Select individual projects or type `*` to inspect all projects.
 - Choose `*` to apply all non-breaking updates, or `*-force` to include breaking updates.
 - Use arrow keys or `/next` and `/prev` to paginate through large lists.
 - Type `/back` to step back in menus, or `/exit` to quit anytime.
 
 ### 2. Configuration Initialization
+
 Generate a tailored, documented `.rrduconfig` file by scanning the workspace:
+
 ```sh
 rrdu --init
 ```
 
 ### 3. Headless CI / Automation Mode
+
 Automate dependency checks and upgrades in your CI pipelines:
+
 ```sh
 # Run non-interactive check with 5-column tabular output (exits with code 1 if outdated)
 rrdu --run=scan
@@ -91,19 +102,25 @@ rrdu --run=full
 ```
 
 ### 4. Self-Update
+
 Check for newer releases on GitHub and update the installed binary in-place:
+
 ```sh
 rrdu --self-update
 ```
 
 ### 5. Diagnostics & Bug Report
+
 Generate an anonymized diagnostic report to paste into GitHub issues (paths are strictly sanitized to protect privacy):
+
 ```sh
 rrdu --report
 ```
 
 ### 6. Command Help
+
 Display a formatted reference of all available commands, options, and descriptions:
+
 ```sh
 rrdu --help
 ```
@@ -119,34 +136,39 @@ workspace:
   - project: Root
     path: ./
     exclude:
-      - tokio
-      - serde
+      project: # Excludes all named dependencies project wide
+        - tokio
+      section: # Excludes all named dependencies from specific sections
+        dev-dependencies: # Only exclude named dependencies from [dev-dependencies] section
+          - serde
+        dependencies.clap: [] # Exclude [dependencies.clap] section in total. No values needed in the list, as the whole section is a single dependency.
   - project: WorkspaceCrate
     path: crates/workspace_crate
     sub-config: true
 
 updater:
   exclude:
-    - excluded_folder
-  auto-update: none   # Options: "none", "*", "*-force"
-  auto-scan: true     # Options: true, false, or list of project names
-  max-lines: 50       # Maximum entries per page during interactive pagination
-  version: 0.0.3      # Version where the config file was created
+    - excluded_project
+  auto-update: none # Options: "none", "*", "*-force"
+  auto-scan: true # Options: true, false, or list of project names
+  max-lines: 50 # Maximum entries per page during interactive pagination
+  version: 0.0.3 # Version where the config file was created
 ```
 
 ### Configuration Options
 
-| Setting | Type | Description |
-|---|---|---|
-| `workspace.project` | `string` | Human-readable name of the project |
-| `workspace.path` | `path` | Path to the directory containing `Cargo.toml` (e.g. `./`, `./crates/foo`, `crates/bar`) |
-| `workspace.exclude` | `list` | Crate names excluded from updates for this project *(optional)* |
-| `workspace.sub-config` | `bool` | Set to `true` if the sub-project provides its own `.rrduconfig` *(default: false)* |
-| `updater.exclude` | `list` | Folders to completely skip during recursive scans *(optional)* |
-| `updater.auto-update` | `string` | Default update behavior for `--run=full` (`none`, `*`, `*-force`) |
-| `updater.auto-scan` | `bool \| list` | Scan trigger behavior upon CLI launch *(default: true)* |
-| `updater.max-lines` | `int` | Maximum items displayed per page in interactive mode *(default: 50)* |
-| `updater.version` | `string` | Version of rrdu the config was created with, used for compatibility checks |
+| Setting                     | Type           | Description                                                                             |
+| --------------------------- | -------------- | --------------------------------------------------------------------------------------- |
+| `workspace.project`         | `string`       | Human-readable name of the project                                                      |
+| `workspace.path`            | `path`         | Path to the directory containing `Cargo.toml` (e.g. `./`, `./crates/foo`, `crates/bar`) |
+| `workspace.exclude.project` | `list`         | Crate names excluded from updates across the entire project _(optional)_                |
+| `workspace.exclude.section` | `mapping`      | Section-specific exclusions (e.g. `dev-dependencies`, table sections) _(optional)_      |
+| `workspace.sub-config`      | `bool`         | Set to `true` if the sub-project provides its own `.rrduconfig` _(default: false)_      |
+| `updater.exclude`           | `list`         | Folders to completely skip during recursive scans _(optional)_                          |
+| `updater.auto-update`       | `string`       | Default update behavior for `--run=full` (`none`, `*`, `*-force`)                       |
+| `updater.auto-scan`         | `bool \| list` | Scan trigger behavior upon CLI launch _(default: true)_                                 |
+| `updater.max-lines`         | `int`          | Maximum items displayed per page in interactive mode _(default: 50)_                    |
+| `updater.version`           | `string`       | Version of rrdu the config was created with, used for compatibility checks              |
 
 ---
 
@@ -165,6 +187,7 @@ Our definitions following a specified naming convention to remove confusion.
 ## Security
 
 Security and supply chain integrity are top priorities for `rrdu`:
+
 - **User-Space Only:** The tool operates entirely within the user's privilege boundary. It never requires or requests root/admin privileges.
 - **Forbidden Unsafe:** Built under `#![forbid(unsafe_code)]`.
 - **Path Traversal Protection:** Relative paths are strictly validated to prevent directory traversal (`../`) attacks.
@@ -178,11 +201,13 @@ For security policies and vulnerability reporting, please see [SECURITY.md](SECU
 ## Contributing & Community
 
 Contributions are welcome. Please review our:
+
 - [CONTRIBUTING.md](CONTRIBUTING.md) for development workflows, testing, and Conventional Commits.
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community standards.
 - [AGENTS.md](AGENTS.md) for architectural guidelines and AI assistant directives.
 
 ### AI Agents & Bot Policy
+
 - **Directive for AI Agents:** All AI assistants and autonomous coding tools interacting with this repository must strictly adhere to [AGENTS.md](AGENTS.md).
 - **Prohibition of Automated Bot PRs:** AI bots and automated pipelines are strictly prohibited from autonomously opening commits, pull requests, or submitting automated reviews. All contributions must be driven, tested, and submitted by human contributors who take full accountability for the code. Unsolicited bot-generated PRs will be closed immediately and marked as spam.
 

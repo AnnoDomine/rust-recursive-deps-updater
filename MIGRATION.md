@@ -10,10 +10,12 @@ As the project may introduce breaking changes during early development, this doc
 
 1. **Renamed `toml` to `path`:**  
    Starting from version 0.0.3, sub-project `.rrduconfig` files are supported. Therefore, the field `toml` in the `workspace` array has been renamed to `path`.
-2. **Added `sub-config` field (boolean):**  
+2. **Added `sub-config` field (boolean):**
    - `false` (default): No dedicated `.rrduconfig` file for this sub-project. `path` points directly to the directory / `Cargo.toml`.
    - `true`: `path` points to a sub-project directory containing its own `.rrduconfig`.
-3. **Added `updater.version` field:**  
+3. **Changed schema of `exclude`:**
+   `exclude` was before a simple list with project wide excluded dependencies. With the 0.0.3 we changed it to a more granular schema which differs between project wide exclusion and section specified exclusion to give more control.
+4. **Added `updater.version` field:**  
    Specifies the configuration schema version for easier compatibility checks.
 
 > **Rationale:** These changes avoid unnecessary discoveries of projects in deep child folders and keep the root `.rrduconfig` concise.
@@ -43,8 +45,12 @@ workspace:
   - project: Root
     path: ./
     exclude:
-      - tokio
-      - serde
+      project: # Excludes all named dependencies project wide
+        - tokio
+      section: # Excludes all named dependencies from specific sections
+        dev-dependencies: # Only exclude named dependencies from [dev-dependencies] section
+          - serde
+        dependencies.clap: [] # Exclude [dependencies.clap] section in total. No values needed in the list, as the whole section is a single dependency.
   - project: WorkspaceCrate
     path: crates/workspace_crate
     sub-config: true
