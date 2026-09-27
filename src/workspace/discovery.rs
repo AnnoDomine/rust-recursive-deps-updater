@@ -416,23 +416,98 @@ mod test_discovery {
 
     #[test]
     fn test_discovery_sub_project_scan() {
-        let discovery = Discovery::new(PathBuf::from("tests/fixtures"), Vec::new())
-            .expect("fixtures discovery should succeed");
+        let temp = tempfile::tempdir().expect("tempdir");
+        let sub_path = temp.path().join("sub_crate");
+        std::fs::create_dir(&sub_path).expect("create sub dir");
+        std::fs::write(
+            sub_path.join("Cargo.toml"),
+            "[package]\nname = \"sub-project\"\nversion = \"0.1.0\"\n",
+        )
+        .expect("write Cargo.toml");
+
+        let discovery = Discovery::new(sub_path.clone(), Vec::new())
+            .expect("sub project discovery should succeed");
         assert!(discovery.has_toml);
         assert!(discovery.found_project.is_some());
         let project = discovery.found_project.unwrap();
-        assert_eq!(project.project, "test-project");
-        assert_eq!(project.path, "tests/fixtures");
+        assert_eq!(project.project, "sub-project");
+        assert_eq!(project.path, sub_path.to_str().unwrap());
         assert!(discovery.next_depth.is_empty());
     }
 
     #[test]
     fn test_discovery_intermediate_folder_scan() {
-        let discovery = Discovery::new(PathBuf::from("tests"), Vec::new())
-            .expect("tests folder discovery should succeed");
+        let temp = tempfile::tempdir().expect("tempdir");
+        let temp_path = temp.path();
+        let fixtures_dir = temp_path.join("fixtures");
+        std::fs::create_dir(&fixtures_dir).expect("create fixtures dir");
+        std::fs::write(
+            fixtures_dir.join("Cargo.toml"),
+            "[package]\nname = \"fixture-sub\"\nversion = \"0.1.0\"\n",
+        )
+        .expect("write Cargo.toml");
+
+        let discovery = Discovery::new(temp_path.to_path_buf(), Vec::new())
+            .expect("intermediate folder discovery should succeed");
         assert!(!discovery.has_toml);
         assert!(discovery.found_project.is_none());
-        assert_eq!(discovery.next_depth, vec![PathBuf::from("tests/fixtures")]);
+        assert_eq!(discovery.next_depth, vec![fixtures_dir]);
+    }
+
+    #[test]
+    fn test_discovery_with_gitignore() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let temp_path = temp.path();
+
+        let ignored_dir = temp_path.join("ignored_crate");
+        std::fs::create_dir(&ignored_dir).expect("create ignored_crate");
+        std::fs::write(
+            ignored_dir.join("Cargo.toml"),
+            "[package]\nname = \"ignored\"\nversion = \"0.1.0\"\n",
+        )
+        .expect("write Cargo.toml");
+
+        let visible_dir = temp_path.join("visible_crate");
+        std::fs::create_dir(&visible_dir).expect("create visible_crate");
+        std::fs::write(
+            visible_dir.join("Cargo.toml"),
+            "[package]\nname = \"visible\"\nversion = \"0.1.0\"\n",
+        )
+        .expect("write Cargo.toml");
+
+        std::fs::write(temp_path.join(GITIGNORE_FILE_NAME), "ignored_crate\n")
+            .expect("write .gitignore");
+
+        let discovery =
+            Discovery::new(temp_path.to_path_buf(), Vec::new()).expect("discovery should succeed");
+        assert!(discovery.ignore.contains(&PathBuf::from("ignored_crate")));
+        assert!(!discovery.next_depth.contains(&ignored_dir));
+        assert!(discovery.next_depth.contains(&visible_dir));
+    }
+
+    #[test]
+    fn test_discovery_with_rrduignore_override() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let temp_path = temp.path();
+
+        let special_dir = temp_path.join("special_crate");
+        std::fs::create_dir(&special_dir).expect("create special_crate");
+        std::fs::write(
+            special_dir.join("Cargo.toml"),
+            "[package]\nname = \"special\"\nversion = \"0.1.0\"\n",
+        )
+        .expect("write Cargo.toml");
+
+        // .gitignore ignores it, but .rrduignore un-ignores it with '!'
+        std::fs::write(temp_path.join(GITIGNORE_FILE_NAME), "special_crate\n")
+            .expect("write .gitignore");
+        std::fs::write(temp_path.join(RRDUIGNORE_FILE_NAME), "!special_crate\n")
+            .expect("write .rrduignore");
+
+        let discovery =
+            Discovery::new(temp_path.to_path_buf(), Vec::new()).expect("discovery should succeed");
+        assert!(!discovery.ignore.contains(&PathBuf::from("special_crate")));
+        assert!(discovery.next_depth.contains(&special_dir));
     }
 
     #[test]

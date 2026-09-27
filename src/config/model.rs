@@ -202,4 +202,16 @@ mod test_rrdu_config {
         updater.exclude_project("crates/vendor".to_string());
         assert_eq!(updater.exclude, vec!["crates/vendor"]);
     }
+
+    #[test]
+    fn test_project_config_get_sub_config_path() {
+        let valid_project = ProjectConfig::new("sub".to_string(), "crates/sub".to_string());
+        assert_eq!(
+            valid_project.get_sub_config_path().unwrap(),
+            PathBuf::from("crates/sub").join(RRDUCONFIG_FILE_NAME)
+        );
+
+        let insecure_project = ProjectConfig::new("sub".to_string(), "../sub".to_string());
+        assert!(insecure_project.get_sub_config_path().is_err());
+    }
 }
