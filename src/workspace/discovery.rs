@@ -27,12 +27,7 @@ use serde::{Deserialize, Serialize};
 use toml_edit::{Item, Value};
 
 use crate::{
-    config::model::ProjectConfig,
-    constants::{
-        CARGO_TOML_FILE_NAME, GITIGNORE_FILE_NAME, RRDUCONFIG_FILE_NAME, RRDUIGNORE_FILE_NAME,
-    },
-    errors::FileError,
-    functions::{create_absolute_path, validate_path_traversal},
+    config::model::ProjectConfig, constants::*, errors::*, functions::*,
     workspace::project::Projects,
 };
 
@@ -58,7 +53,6 @@ impl Discovery {
         };
         discovery.scan_dir()?;
         discovery.scan_for_rrduconfig()?;
-        discovery.generate_next_depth();
         Ok(discovery)
     }
 
@@ -107,10 +101,8 @@ impl Discovery {
         self.next_depth.push(current.clone());
     }
 
-    fn generate_next_depth(&mut self) {
-        let Ok(abs_current) = self.retreive_absolute_path_to_scan() else {
-            return;
-        };
+    fn generate_next_depth(&mut self) -> Result<(), FileError> {
+        let abs_current = self.retreive_absolute_path_to_scan()?;
 
         let subfolders: Vec<PathBuf> = self
             .dir_entries
@@ -125,6 +117,7 @@ impl Discovery {
         for folder in subfolders {
             self.add_folder(&folder);
         }
+        Ok(())
     }
 
     fn scan_for_rrduconfig(&mut self) -> Result<(), FileError> {
@@ -272,11 +265,10 @@ impl Discovery {
             let content = self.get_splitted_ignore_content(RRDUIGNORE_FILE_NAME.to_string())?;
             self.parse_ignore_file(content);
         }
-        self.unique_ignored();
-        Ok(())
+        self.unique_ignored()
     }
 
-    fn unique_ignored(&mut self) {
+    fn unique_ignored(&mut self) -> Result<(), FileError> {
         let mut unique: Vec<PathBuf> = Vec::new();
         for igno in self.ignore.clone() {
             if !unique.contains(&igno) {
@@ -284,6 +276,7 @@ impl Discovery {
             }
         }
         self.ignore = unique;
+        self.generate_next_depth()
     }
 
     fn apply_found_project(&mut self, name: String, path: String, sub_config: bool) {
@@ -300,6 +293,7 @@ impl Discovery {
 #[cfg(test)]
 mod test_discovery {
     use super::*;
+    use crate::enums::SubConfig;
 
     #[test]
     fn test_prepare_ignored_root_returns_unchanged() {
@@ -379,7 +373,7 @@ mod test_discovery {
             found_project: None,
         };
 
-        discovery.unique_ignored();
+        let _ = discovery.unique_ignored();
         assert_eq!(
             discovery.ignore,
             vec![PathBuf::from("target"), PathBuf::from("src")]
@@ -388,25 +382,36 @@ mod test_discovery {
 
     #[test]
     fn test_discovery_root_scan() {
-        let discovery =
-            Discovery::new(PathBuf::from(""), Vec::new()).expect("root discovery should succeed");
+        let temp = tempfile::tempdir().expect("tempdir");
+        let temp_path = temp.path();
+
+        // Create Cargo.toml in tempdir
+        std::fs::write(
+            temp_path.join("Cargo.toml"),
+            "[package]\nname = \"temp-project\"\nversion = \"0.1.0\"\n",
+        )
+        .expect("write Cargo.toml");
+
+        // Create subdirectories
+        std::fs::create_dir(temp_path.join("tests")).expect("create tests");
+        std::fs::create_dir(temp_path.join(".git")).expect("create .git");
+        std::fs::create_dir(temp_path.join("target")).expect("create target");
+        std::fs::create_dir(temp_path.join("src")).expect("create src");
+
+        let discovery = Discovery::new(temp_path.to_path_buf(), Vec::new())
+            .expect("root discovery should succeed");
         assert!(discovery.has_toml);
         assert!(discovery.found_project.is_some());
         let project = discovery.found_project.unwrap();
-        assert_eq!(project.project, "rust-recursive-deps-updater");
-        assert_eq!(project.path, "./");
+        assert_eq!(project.project, "temp-project");
 
-        // Verifies hidden, default, and .rrduignore folders are ignored
         assert!(discovery.ignore.contains(&PathBuf::from(".git")));
         assert!(discovery.ignore.contains(&PathBuf::from("target")));
         assert!(discovery.ignore.contains(&PathBuf::from("src")));
-        assert!(discovery.ignore.contains(&PathBuf::from("images")));
 
-        // Verifies next_depth contains tests and excludes ignored folders
-        assert!(discovery.next_depth.contains(&PathBuf::from("tests")));
-        assert!(!discovery.next_depth.contains(&PathBuf::from(".git")));
-        assert!(!discovery.next_depth.contains(&PathBuf::from("target")));
-        assert!(!discovery.next_depth.contains(&PathBuf::from("images")));
+        assert!(discovery.next_depth.contains(&temp_path.join("tests")));
+        assert!(!discovery.next_depth.contains(&temp_path.join(".git")));
+        assert!(!discovery.next_depth.contains(&temp_path.join("target")));
     }
 
     #[test]
@@ -428,5 +433,30 @@ mod test_discovery {
         assert!(!discovery.has_toml);
         assert!(discovery.found_project.is_none());
         assert_eq!(discovery.next_depth, vec![PathBuf::from("tests/fixtures")]);
+    }
+
+    #[test]
+    fn test_discovery_stops_when_rrduconfig_present() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let temp_path = temp.path();
+
+        std::fs::write(temp_path.join(RRDUCONFIG_FILE_NAME), "workspace: []\n")
+            .expect("write .rrduconfig");
+        std::fs::write(
+            temp_path.join("Cargo.toml"),
+            "[package]\nname = \"config-project\"\nversion = \"0.1.0\"\n",
+        )
+        .expect("write Cargo.toml");
+
+        std::fs::create_dir(temp_path.join("sub_crate")).expect("create sub_crate");
+
+        let discovery =
+            Discovery::new(temp_path.to_path_buf(), Vec::new()).expect("discovery should succeed");
+
+        assert!(!discovery.has_toml);
+        assert!(discovery.found_project.is_some());
+        let project = discovery.found_project.unwrap();
+        assert_eq!(project.sub_config, SubConfig::Bool(true));
+        assert!(discovery.next_depth.is_empty());
     }
 }

@@ -322,6 +322,7 @@ rust-recursive-deps-updater/
 
 ### Phase 3: crates.io Registry Client & SemVer Engine (`registry`)
 
+- [ ] Fix: Stop recursive discovery traversal on directories containing `.rrduconfig` (`sub-config: true`) ([#5](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/5)).
 - [ ] Implement dual-mode logging infrastructure (`log` facade) routing to `./rrdu.log` (CLI mode, truncated on startup) or `stderr` (CI mode), replacing raw `println!` calls.
 - [ ] Implement `src/registry/client.rs` using `ureq` with `rustls` and strict timeouts.
 - [ ] Implement in-memory cache to avoid duplicate network queries.
