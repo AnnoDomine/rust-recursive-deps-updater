@@ -50,7 +50,7 @@ workspace:
       section: # Excludes all named dependencies from specific sections
         dev-dependencies: # Only exclude named dependencies from [dev-dependencies] section
           - serde
-        dependencies.clap: [] # Exclude [dependencies.clap] section in total. No values needed in the list, as the whole section is a single dependency.
+        dependencies.clap: [] # Exclude [dependencies.clap] section in total.
   - project: WorkspaceCrate
     path: crates/workspace_crate
     sub-config: true

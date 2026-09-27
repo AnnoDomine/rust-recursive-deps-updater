@@ -1,9 +1,15 @@
 #![forbid(unsafe_code)]
 use clap::Parser;
 
+/// Modules
 pub mod config;
-pub mod globals;
 pub mod workspace;
+
+/// Globals
+pub mod constants;
+pub mod enums;
+pub mod errors;
+pub mod functions;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -17,9 +23,11 @@ fn main() {
     let args = Args::parse();
 
     if args.init {
-        config::model::RrduConfig::create_config();
+        config::rrdu_config::RrduConfig::create_config();
         return;
     }
     println!("This application is currently in an early stage and not ready for use!");
-    let _config = config::model::RrduConfig::new();
+    let mut w = workspace::project::Workspace::new();
+    let _ = w.read_rrdu_config(None);
+    println!("Workspace: {:#?}", w);
 }

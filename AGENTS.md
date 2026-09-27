@@ -62,6 +62,7 @@ This document serves as the single source of truth and directive for all AI agen
        - Assisting with resolving compiler, linter, or check errors (`cargo check`, `cargo clippy`, `cargo fmt`).
        - Drafting and maintaining documentation (Rustdoc `///` comments, Markdown specifications, guides).
        - Small, targeted code integrations explicitly requested by the human developer, strictly up to a maximum length of **4 lines**.
+       - Unit-tests even above the maximum length restriction.
     2. **Mandatory Line-by-Line Watermark for Full Integrations & Bugfixes:**
        - If an AI agent is instructed to generate full integrations, complex modules, or complete bugfixes (any code exceeding the 4-line developer limit), the agent **MUST** terminate every single generated line with the exact string:
          `// I am an AI and i am dumb`
