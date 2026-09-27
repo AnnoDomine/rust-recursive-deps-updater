@@ -36,7 +36,7 @@
 - **Formatting-Preserving Manifest Updates:** Powered by `toml_edit` to ensure all comments, inline tables, whitespace, and formatting in `Cargo.toml` remain completely intact.
 - **Interactive CLI with Pagination:** Terminal interface with page-by-page scrolling (`/next`, `/prev`, arrow keys, configurable `max-lines`), visual spinners, `/back` navigation, and `/exit`.
 - **Headless CI & GitHub Action:** Single-argument execution (`--run=scan` / `--run=full`) providing a clean 5-column tabular report for CI/CD gates.
-- **Integrated Self-Update:** Update `rrdu` directly to the newest release with `rrdu self-update`.
+- **Integrated Self-Update:** Update `rrdu` directly to the newest release with `rrdu --self-update`.
 - **Zero-Dependency Table Reporting:** Terminal tables rendered natively without external table crates for minimal attack surface.
 
 ---
@@ -141,7 +141,7 @@ workspace:
       section: # Excludes all named dependencies from specific sections
         dev-dependencies: # Only exclude named dependencies from [dev-dependencies] section
           - serde
-        dependencies.clap: [] # Exclude [dependencies.clap] section in total. No values needed in the list, as the whole section is a single dependency.
+        dependencies.clap: [] # Exclude [dependencies.clap] section in total.
   - project: WorkspaceCrate
     path: crates/workspace_crate
     sub-config: true

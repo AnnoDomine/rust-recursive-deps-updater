@@ -1,3 +1,22 @@
+use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
+
+use crate::errors::*;
+
+/// Identifier if a sub project configuration is present.
+///
+/// Possible values:
+/// - true -> Sub config file is in same folder as Cargo.toml
+/// - false -> No sub config file present, but Cargo.toml
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(untagged)]
+pub enum SubConfig {
+    #[default]
+    None,
+    Bool(bool),
+}
+
 /// Primitve boolean enum for better readability
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Boolean {
@@ -16,6 +35,45 @@ pub enum TargetDepKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExcludeReason {
+    /// Excluded dependency section in project defined in `workspace.exclude.section` (e.g. `[dependecies.serde]`)
+    ExcludedSection,
+    /// Excluded dependecy project wide defined in `workspace.exclude.project`
+    ExcludedInProject,
+    /// Excluded dependecy in project section defined in `workspace.exclude.section` (e.g. `[dev-dependencies`)
+    ExcludedInSection,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DepndencyCollectionVersion {
+    /// Chack not fulfilled
+    None,
+    /// Check fulfilled
+    Latest(String),
+    /// Check error
+    Error(CollectionVersionError),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DependecySectionMap {
+    /// Map of the dependencies from the section
+    Map(HashMap<String, DependencyEntry>),
+    /// Excluded section defined in `workspace.exclude.section` if complete section is excluded.
+    /// Used for sections which are dependency specific.
+    ExcludedSection,
+    /// State if no dependecy found
+    Empty,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProjectDependecy {
+    /// Map of the dependencies from the project
+    Map(HashMap<DependencySection, DependecySectionMap>),
+    /// Excluded project defined in `updater.exclude`
+    ExcludedProject,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DependencyVersion {
     /// Supported crates.io dependency version requirement (e.g. "1.0.0", "^3.1", "~0.4")
     Supported(String),
@@ -25,6 +83,8 @@ pub enum DependencyVersion {
     MissingRequired { fields: Vec<String> },
     /// Value of version is not supported
     UnsupportedValue(String),
+    /// Excluded dependency incl. reason
+    Excluded(ExcludeReason),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -111,7 +171,7 @@ pub enum DependencySection {
     Workspace,
     /// `[target.'<target>'.dependencies | dev-dependencies | build-dependencies]`
     Target { target: String, kind: TargetDepKind },
-    /// `[dependencies.my_serde]` or `[target.x86.dependencies.my_serde]`
+    /// `[dependencies.my_serde]` or `[target.x86.dependencies.clap]` or `[workspace.dependencies.serde]` or `[target.'<target>'.build-dependencies.tokio]`
     Table {
         parent: Box<DependencySection>,
         toml_key: String,
@@ -126,24 +186,13 @@ pub enum ExcludeArea {
     Section(DependencySection),
 }
 
-impl std::fmt::Display for DependencySection {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Normal => write!(f, "dependencies"),
-            Self::Dev => write!(f, "dev-dependencies"),
-            Self::Build => write!(f, "build-dependencies"),
-            Self::Workspace => write!(f, "workspace.dependencies"),
-            Self::Target { target, kind } => {
-                let kind_str = match kind {
-                    TargetDepKind::Normal => "dependencies",
-                    TargetDepKind::Dev => "dev-dependencies",
-                    TargetDepKind::Build => "build-dependencies",
-                };
-                write!(f, "target.{target}.{kind_str}")
-            }
-            Self::Table { parent, toml_key } => {
-                write!(f, "{parent}.{toml_key}")
-            }
-        }
-    }
+pub enum ConfigCompatibility {
+    /// Version of config is compatible with the current running/installed version
+    Compatible,
+    /// Config have no version specified
+    LegacyMissingVersion,
+    /// Version of config is outdated
+    OutdatedVersion(semver::Version, semver::Version),
+    /// Version of running rrdu is older than config version
+    IncompatibleFutureVersion(semver::Version),
 }

@@ -1,4 +1,2 @@
-pub mod error;
 pub mod model;
-
-pub use error::ConfigError;
+pub mod rrdu_config;
