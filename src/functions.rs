@@ -147,4 +147,18 @@ mod test_path_validation {
         let invalid = PathBuf::from("./other.toml");
         assert!(validate_path_and_file_name(&invalid, "Cargo.toml").is_err());
     }
+
+    #[test]
+    fn test_create_absolute_path_with_tempfile() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let temp_path = temp.path();
+
+        let resolved =
+            create_absolute_path(temp_path, Some("Cargo.toml")).expect("create absolute path");
+        assert_eq!(resolved, temp_path.join("Cargo.toml"));
+
+        let without_file =
+            create_absolute_path(temp_path, None).expect("create absolute path without file");
+        assert_eq!(without_file, temp_path);
+    }
 }
