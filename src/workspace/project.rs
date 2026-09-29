@@ -14,12 +14,12 @@ use std::path::PathBuf;
 use toml_edit::*;
 
 impl DependencyEntry {
-    /// Entry function for parsing the dependecy.
+    /// Entry function for parsing the DEPENDENCY.
     ///
     /// This function internal handles all posible schemas.
     /// If a schema is not supported or wrong defined (e.g. no version key) it returns None to not getting mapped.
     ///
-    /// * We only support dependencies which are downloadable and updateable from crate.io
+    /// * We only support dependencies which are downloadable and updateable from crates.io
     /// * Additional at least the verion needs to be defined as a semver supported string ("MAJOR.MINOR.PATCH")
     pub fn new(key: &str, item: &Item) -> Option<Self> {
         match item {
@@ -33,7 +33,7 @@ impl DependencyEntry {
         }
     }
 
-    /// Function to parse inline dependecy definitions.
+    /// Function to parse inline DEPENDENCY definitions.
     ///
     /// ```toml
     /// web-sys = { version = "0.3", features = [...] }
@@ -86,7 +86,7 @@ impl DependencyEntry {
     fn is_unsupported(keys: &[String]) -> Option<DependencyVersion> {
         let mut unsupported_list: Vec<String> = Vec::new();
         for key in keys {
-            if UNSUPPORTED_DEPENDECY_KEYS.contains(&key.as_str()) {
+            if UNSUPPORTED_DEPENDENCY_KEYS.contains(&key.as_str()) {
                 unsupported_list.push(key.clone());
             }
         }
@@ -117,7 +117,7 @@ impl DependencyEntry {
         }
     }
 
-    /// Return the dependency name (from crate.io)
+    /// Return the dependency name (from crates.io)
     pub fn package(&self) -> &str {
         match self {
             Self::Simple(d) => &d.toml_key,
@@ -144,15 +144,15 @@ impl DependencyEntry {
         }
     }
 
-    /// Return the 'crate.io' package name, if the dependency us supported. else None
-    pub fn is_dep_included(&self) -> Result<&str, DependecyRow> {
+    /// Return the 'crates.io' package name, if the dependency us supported. else None
+    pub fn is_dep_included(&self) -> Result<&str, DEPENDENCYRow> {
         match &self.version() {
             DependencyVersion::Supported(_) => Ok(self.package()),
             _ => Err(self.get_dependency_row_valus(None)),
         }
     }
 
-    /// Return the values needed for the dependecy row inside the CI and the CLI
+    /// Return the values needed for the DEPENDENCY row inside the CI and the CLI
     ///
     /// Return:
     /// * is_latest: Boolean
@@ -160,7 +160,7 @@ impl DependencyEntry {
     /// * message: String
     ///
     /// `(Boolean, Boolean, String)`
-    pub fn get_dependency_row_valus(&self, latest: Option<String>) -> DependecyRow {
+    pub fn get_dependency_row_valus(&self, latest: Option<String>) -> DEPENDENCYRow {
         let version = self.version();
         match latest {
             Some(l) => {
@@ -200,7 +200,7 @@ impl DependencyEntry {
             None => (
                 Boolean::True,
                 Boolean::False,
-                format!("Scan not fullfilled for dependecy '{:}'", self.package()),
+                format!("Scan not fullfilled for DEPENDENCY '{:}'", self.package()),
             ),
         }
     }
@@ -386,7 +386,7 @@ impl DependencySection {
         }
     }
 
-    pub fn is_dependecy_section(&self) -> Option<&String> {
+    pub fn is_dependency_section(&self) -> Option<&String> {
         match self {
             Self::Table { toml_key, .. } => Some(toml_key),
             _ => None,
@@ -398,7 +398,7 @@ impl DependencySection {
 pub struct Projects {
     pub name: String,
     pub path: PathBuf,
-    pub deps: ProjectDependecy,
+    pub deps: ProjectDEPENDENCY,
     pub config: ProjectConfig,
 }
 
@@ -412,17 +412,17 @@ impl Projects {
         }
     }
 
-    fn define_deps(is_excuded: Boolean) -> ProjectDependecy {
+    fn define_deps(is_excuded: Boolean) -> ProjectDEPENDENCY {
         match is_excuded {
-            Boolean::True => ProjectDependecy::ExcludedProject,
-            Boolean::False => ProjectDependecy::Map(HashMap::new()),
+            Boolean::True => ProjectDEPENDENCY::ExcludedProject,
+            Boolean::False => ProjectDEPENDENCY::Map(HashMap::new()),
         }
     }
 
     pub fn parse_project(&mut self) {
         match self.deps {
-            ProjectDependecy::ExcludedProject => {}
-            ProjectDependecy::Map(_) => {
+            ProjectDEPENDENCY::ExcludedProject => {}
+            ProjectDEPENDENCY::Map(_) => {
                 match self.get_toml_content() {
                     Ok(toml) => self.collect_sections(toml),
                     Err(e) => println!("{:}", e),
@@ -449,14 +449,14 @@ impl Projects {
         Self::get_toml_content_from_path(toml_path)
     }
 
-    pub fn set_deps(&mut self, deps: ProjectDependecy) {
+    pub fn set_deps(&mut self, deps: ProjectDEPENDENCY) {
         self.deps = deps;
     }
 
-    fn map_deps(&self, section: DependencySection, doc: DocumentMut) -> DependecySectionMap {
+    fn map_deps(&self, section: DependencySection, doc: DocumentMut) -> DEPENDENCYSectionMap {
         let mut map: HashMap<String, DependencyEntry> = HashMap::new();
         if let Some(t) = section.get_item(&doc) {
-            match section.is_dependecy_section() {
+            match section.is_dependency_section() {
                 Some(key) => {
                     if let Some(dep) = DependencyEntry::new(key, t) {
                         map.insert(key.to_string(), dep);
@@ -476,9 +476,9 @@ impl Projects {
             };
         };
         if map.is_empty() {
-            return DependecySectionMap::Empty;
+            return DEPENDENCYSectionMap::Empty;
         }
-        DependecySectionMap::Map(map)
+        DEPENDENCYSectionMap::Map(map)
     }
 
     pub fn search_sections(
@@ -486,7 +486,7 @@ impl Projects {
         section: Option<String>,
         key: &str,
         item: Item,
-        collector: &mut HashMap<DependencySection, Option<DependecySectionMap>>,
+        collector: &mut HashMap<DependencySection, Option<DEPENDENCYSectionMap>>,
     ) {
         match &item {
             Item::Table(t) => {
@@ -512,7 +512,7 @@ impl Projects {
                         Some(excluded_section_values) if excluded_section_values.is_empty() => {
                             collector.insert(
                                 mapable_section,
-                                Some(DependecySectionMap::ExcludedSection),
+                                Some(DEPENDENCYSectionMap::ExcludedSection),
                             );
                         }
                         _ => {
@@ -529,27 +529,28 @@ impl Projects {
             .iter()
             .map(|(k, v)| (k.to_string(), v.clone()))
             .collect::<Vec<(String, Item)>>();
-        let mut collector: HashMap<DependencySection, Option<DependecySectionMap>> = HashMap::new();
+        let mut collector: HashMap<DependencySection, Option<DEPENDENCYSectionMap>> =
+            HashMap::new();
         for (k_def, v_def) in k {
             self.search_sections(None, &k_def.to_string(), v_def.clone(), &mut collector);
         }
-        let mut mapped_deps: HashMap<DependencySection, DependecySectionMap> = HashMap::new();
+        let mut mapped_deps: HashMap<DependencySection, DEPENDENCYSectionMap> = HashMap::new();
         for (sec, deps) in collector {
             if deps.is_none() {
                 mapped_deps.insert(sec.clone(), self.map_deps(sec, toml_doc.clone()));
             }
         }
-        self.set_deps(ProjectDependecy::Map(mapped_deps));
+        self.set_deps(ProjectDEPENDENCY::Map(mapped_deps));
     }
 
     /// Takes a mutatable hashmap to collect the included and supported dependencies to scan for newer versions
-    pub fn list_all_deps(&self, collected_deps: &mut HashMap<String, DepndencyCollectionVersion>) {
-        if let ProjectDependecy::Map(sec_map) = &self.deps {
+    pub fn list_all_deps(&self, collected_deps: &mut HashMap<String, DependencyCollectionVersion>) {
+        if let ProjectDEPENDENCY::Map(sec_map) = &self.deps {
             for deps in sec_map.values() {
-                if let DependecySectionMap::Map(dep_map) = deps {
+                if let DEPENDENCYSectionMap::Map(dep_map) = deps {
                     for dep in dep_map.values() {
                         if let Ok(p) = dep.is_dep_included() {
-                            collected_deps.insert(p.to_string(), DepndencyCollectionVersion::None);
+                            collected_deps.insert(p.to_string(), DependencyCollectionVersion::None);
                         };
                     }
                 }
@@ -561,7 +562,7 @@ impl Projects {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Workspace {
     pub projects: Vec<Projects>,
-    pub collected_deps: HashMap<String, DepndencyCollectionVersion>,
+    pub collected_deps: HashMap<String, DependencyCollectionVersion>,
 }
 
 impl Default for Workspace {
@@ -632,7 +633,7 @@ impl Workspace {
         Ok(())
     }
 
-    /// Fetch the dependency versions from 'crate.io'
+    /// Fetch the dependency versions from 'crates.io'
     pub fn fetch_latest_versions(&mut self) {
         todo!("Add fetch logic as part of registry")
     }
@@ -884,7 +885,7 @@ mod test_dependency_entry {
             (
                 Boolean::True,
                 Boolean::False,
-                "Scan not fullfilled for dependecy 'test'".to_string()
+                "Scan not fullfilled for DEPENDENCY 'test'".to_string()
             )
         );
 

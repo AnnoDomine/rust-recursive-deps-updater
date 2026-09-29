@@ -1,8 +1,15 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::SystemTime};
 
 use serde::{Deserialize, Serialize};
 
-use crate::errors::*;
+use crate::{
+    errors::*,
+    registry::{
+        crates_index_response_structs::CratesIndexResponseParsed,
+        crates_io_response_structs::CratesIOResponse,
+        rust_sec_json_response_structs::RustsecJsonResponse,
+    },
+};
 
 /// Identifier if a sub project configuration is present.
 ///
@@ -36,16 +43,16 @@ pub enum TargetDepKind {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExcludeReason {
-    /// Excluded dependency section in project defined in `workspace.exclude.section` (e.g. `[dependecies.serde]`)
+    /// Excluded dependency section in project defined in `workspace.exclude.section` (e.g. `[dependencies.serde]`)
     ExcludedSection,
-    /// Excluded dependecy project wide defined in `workspace.exclude.project`
+    /// Excluded DEPENDENCY project wide defined in `workspace.exclude.project`
     ExcludedInProject,
-    /// Excluded dependecy in project section defined in `workspace.exclude.section` (e.g. `[dev-dependencies`)
+    /// Excluded DEPENDENCY in project section defined in `workspace.exclude.section` (e.g. `[dev-dependencies`)
     ExcludedInSection,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DepndencyCollectionVersion {
+pub enum DependencyCollectionVersion {
     /// Chack not fulfilled
     None,
     /// Check fulfilled
@@ -55,20 +62,20 @@ pub enum DepndencyCollectionVersion {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DependecySectionMap {
+pub enum DEPENDENCYSectionMap {
     /// Map of the dependencies from the section
     Map(HashMap<String, DependencyEntry>),
     /// Excluded section defined in `workspace.exclude.section` if complete section is excluded.
     /// Used for sections which are dependency specific.
     ExcludedSection,
-    /// State if no dependecy found
+    /// State if no DEPENDENCY found
     Empty,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ProjectDependecy {
+pub enum ProjectDEPENDENCY {
     /// Map of the dependencies from the project
-    Map(HashMap<DependencySection, DependecySectionMap>),
+    Map(HashMap<DependencySection, DEPENDENCYSectionMap>),
     /// Excluded project defined in `updater.exclude`
     ExcludedProject,
 }
@@ -157,7 +164,7 @@ pub struct TableDependency {
 /// Values to generate CI and CLI dependency table row
 ///
 /// (is latest, needs migration, version string)
-pub type DependecyRow = (Boolean, Boolean, String);
+pub type DEPENDENCYRow = (Boolean, Boolean, String);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DependencySection {
@@ -186,6 +193,7 @@ pub enum ExcludeArea {
     Section(DependencySection),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConfigCompatibility {
     /// Version of config is compatible with the current running/installed version
     Compatible,
@@ -195,4 +203,53 @@ pub enum ConfigCompatibility {
     OutdatedVersion(semver::Version, semver::Version),
     /// Version of running rrdu is older than config version
     IncompatibleFutureVersion(semver::Version),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrateResponses {
+    pub index: Option<CratesIndexResponseParsed>,
+    pub api: Option<Box<CratesIOResponse>>,
+    pub audit: Option<RustsecJsonResponse>,
+}
+
+/// Client request states for a crate.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RegistryClientState {
+    /// The client request has not yet started.
+    Uninitialised,
+    /// The clinet make a request to 'crates.io' to get the latest versions.
+    Loading,
+    /// The request were succesfully finished and the crate was found. The latest version were responsed.
+    Succesed(CrateResponses),
+    /// The request runs into an error and could not get fulfilled.
+    Errored(CollectionVersionError),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CacheResponse {
+    // Crates io index response
+    CratesIOIndexResponse(HashMap<String, CacheEntry<CratesIndexResponseParsed>>),
+    // Crate io api response
+    CratesIOAPIResponse(HashMap<String, CacheEntry<Box<CratesIOResponse>>>),
+    // Rustsec Json Response
+    RustSecJsonResponse(HashMap<String, CacheEntry<RustsecJsonResponse>>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CacheEntry<T> {
+    pub timestamp: SystemTime,
+    pub response: T,
+}
+
+impl<T: Clone> CacheEntry<T> {
+    pub fn get_ttl(&self) -> SystemTime {
+        self.timestamp
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CacheType {
+    CratesIOIndex,
+    CratesIOApi,
+    RustsecJsonResponse,
 }
