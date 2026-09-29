@@ -8,6 +8,7 @@ use crate::{
     enums::*,
     errors::*,
     functions::*,
+    registry::client::Client,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -563,6 +564,7 @@ impl Projects {
 pub struct Workspace {
     pub projects: Vec<Projects>,
     pub collected_deps: HashMap<String, DependencyCollectionVersion>,
+    pub client: Option<Client>,
 }
 
 impl Default for Workspace {
@@ -576,6 +578,7 @@ impl Workspace {
         Self {
             projects: Vec::new(),
             collected_deps: HashMap::new(),
+            client: None,
         }
     }
 
@@ -635,7 +638,10 @@ impl Workspace {
 
     /// Fetch the dependency versions from 'crates.io'
     pub fn fetch_latest_versions(&mut self) {
-        todo!("Add fetch logic as part of registry")
+        let mut client = Client::new();
+        client.map_crates(self.collected_deps.clone());
+        let _ = client.start_calls();
+        self.client = Some(client);
     }
 }
 
