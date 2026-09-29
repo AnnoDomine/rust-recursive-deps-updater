@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub enum CombinedConfigFileError {
@@ -63,13 +64,16 @@ pub enum FileError {
     ConfigError(ConfigError),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Error)]
+#[derive(Debug, Clone, PartialEq, Eq, Error, Serialize, Deserialize)]
+pub enum RrduErrorCodes {}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error, Serialize, Deserialize)]
 pub enum CollectionVersionError {
     /// Dependency not found error
-    #[error("Dependency could not found on 'crate.io'")]
+    #[error("Dependency could not found on 'crates.io'")]
     NotFound,
 
     /// Other errors from fetching
-    #[error("Error while try to get version from 'crate.io': {0}")]
+    #[error("Error while try to get version from 'crates.io': {0}")]
     Other(String),
 }
