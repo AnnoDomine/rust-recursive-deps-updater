@@ -35,6 +35,9 @@
 - **Intelligent SemVer Classification:** Distinguishes between compatible updates (`[No migration needed]`) and breaking changes (`[Need manual migration]`) based on official Cargo SemVer conventions.
 - **Formatting-Preserving Manifest Updates:** Powered by `toml_edit` to ensure all comments, inline tables, whitespace, and formatting in `Cargo.toml` remain completely intact.
 - **Interactive CLI with Pagination:** Terminal interface with page-by-page scrolling (`/next`, `/prev`, arrow keys, configurable `max-lines`), visual spinners, `/back` navigation, and `/exit`.
+- **Two-Tier Registry Strategy:** Ultra-fast, zero-latency execution in CI pipelines via the static crates.io Sparse Index (`https://index.crates.io/`). Rich metadata queries in interactive mode strictly throttled to 1 request/second adhering to the official crates.io Data Access Policy.
+- **RustSec Security Advisory Checks:** Integrates package vulnerability audits directly from `rustsec.org` to report known security patches, CVEs, and affected SemVer ranges.
+- **Persistent Tri-Cache:** Strongly-typed user-space cache (`~/.rrdu/cache/`) with TTL expiration checks (24h for crates.io index/API, 6h for security advisories) to eliminate redundant network calls across sessions.
 - **Headless CI & GitHub Action:** Single-argument execution (`--run=scan` / `--run=full`) providing a clean 5-column tabular report for CI/CD gates.
 - **Integrated Self-Update:** Update `rrdu` directly to the newest release with `rrdu --self-update`.
 - **Zero-Dependency Table Reporting:** Terminal tables rendered natively without external table crates for minimal attack surface.
@@ -192,7 +195,7 @@ Security and supply chain integrity are top priorities for `rrdu`:
 - **Forbidden Unsafe:** Built under `#![forbid(unsafe_code)]`.
 - **Path Traversal Protection:** Relative paths are strictly validated to prevent directory traversal (`../`) attacks.
 - **No Dynamic Injection:** Operational settings are statically bound to configuration files.
-- **Secure Networking:** Strict TLS 1.2/1.3, verified user-agent, and strict query timeouts for registry requests.
+- **Secure Networking & Rate Limiting:** Strict TLS 1.2/1.3, compliant user-agent headers, strict 10s query timeouts, and 1-second request throttling adhering to crates.io data access policies.
 
 For security policies and vulnerability reporting, please see [SECURITY.md](SECURITY.md).
 
