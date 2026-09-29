@@ -3,6 +3,7 @@ use clap::Parser;
 
 /// Modules
 pub mod config;
+pub mod registry;
 pub mod workspace;
 
 /// Globals
