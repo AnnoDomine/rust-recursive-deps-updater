@@ -80,15 +80,24 @@ updater:
 - **Workspace Dependencies:** Resolves central `[workspace.dependencies]` and detects inherited dependencies in member crates (`dep = { workspace = true }`).
 - **Non-Workspace Projects:** Correctly categorizes and processes nested standalone crates that are not part of the root workspace.
 
-### 2.3 Registry Client & SemVer Classification Engine
+### 2.3 Registry Client, Security & SemVer Classification Engine
 
 - **Target Scope:** Strictly direct `crates.io` dependencies.
 - Git dependencies (`git = "..."`) and path dependencies (`path = "..."`) are explicitly skipped and ignored.
-- **Registry Communication:**
-- Uses `ureq` with `rustls` (synchronous, lightweight, memory-safe, no OpenSSL dependencies).
-- Outgoing HTTP queries enforce a 10-second timeout, retry limits, and a compliant `User-Agent: rust-recursive-deps-updater/<version> (<url>)`.
-- In-memory caching ensures identical crates across multiple manifests are queried only once per session.
-- Yanked releases are filtered out and ignored.
+- **Two-Tier Registry & Security Communication:**
+  - **Static Sparse Index (`https://index.crates.io/`):** Fast, CDN-backed NDJSON queries without rate limits. Used for crate existence verification and exclusively in headless CI modes (`--run=scan`, `--run=full`) to ensure maximum speed and minimal runner latency.
+  - **crates.io Web API (`https://crates.io/api/v1/crates/{crate}`):** Queried in interactive and local modes to fetch rich metadata (yanked versions, authors, download statistics, categories). Outgoing calls enforce strict **1-second throttling** (`TIME_BETWEEN_REQUESTS = Duration::from_millis(1000)`) strictly adhering to the [crates.io Data Access Policy](https://crates.io/data-access).
+  - **RustSec Security Advisories (`https://rustsec.org/packages/{crate}.json`):** Static CDN lookup returning complete vulnerability advisories (RUSTSEC/CVE IDs, CVSS, affected SemVer ranges, patched releases). Fetched at the end of scan workflows.
+  - Uses `ureq` with `rustls` (synchronous, lightweight, memory-safe, no OpenSSL dependencies) and strict 10-second timeouts.
+  - Outgoing HTTP queries enforce compliant `User-Agent` headers with application version, action tags, and repository links.
+- **Persistent Tri-Cache Architecture (`CacheRegistry<T>`):**
+  - Stored in user space at `~/.rrdu/cache/`:
+    - `rrdu_crates_io_index_cache.bin` (TTL: 24h)
+    - `rrdu_crates_io_api_cache.bin` (TTL: 24h)
+    - `rrdu_rustsec_cache.bin` (TTL: 6h)
+  - Strongly-typed JSON persistence via `serde_json` and `SystemTime` / `Duration` TTL evaluation. Eliminates redundant network calls across multiple runs.
+- **Structured Status Codes (`StatusCodeSchema<T>`):**
+  - Hierarchical module codes (`1YXX` - `6YXX`) with generic typed metadata (`meta: Option<T>`) for uniform logging, error tracking, and CLI diagnostics.
 - **SemVer Rules for Migration Necessity:**
 - **Version >= 1.0.0:**
   - Patch or Minor bump (e.g., `1.2.0` -> `1.3.1`): `[No migration needed]`
@@ -273,10 +282,11 @@ rust-recursive-deps-updater/
 | --------------------- | ----------------- | -------------------- | -------------------------------------------------------------------------------------- |
 | `clap`                | `~4.5` (derive)   | CLI Argument Parsing | Industry standard for robust CLI parsing (`init`, `--run=scan`, `--run=full`)          |
 | `serde`               | `~1.0` (derive)   | Data Serialization   | Struct serialization/deserialization                                                   |
+| `serde_json`          | `~1.0`            | JSON Parser & Cache  | Parsing crates.io Sparse Index (NDJSON), Web API, RustSec advisories, and cache storage |
 | `noyalib`             | `latest`          | YAML Parser          | Pure Rust YAML 1.2 with `#![forbid(unsafe_code)]`, maintained drop-in for `serde_yaml` |
 | `toml_edit`           | `latest`          | Manifest Editor      | Official Cargo-team AST parser preserving comments, whitespace, and formatting         |
 | `semver`              | `~1.0`            | SemVer Logic         | Rust core SemVer parser for accurate version comparison and breaking change checks     |
-| `ureq`                | `latest` (rustls) | HTTP Client          | Synchronous, lightweight, memory-safe TLS without OpenSSL system dependencies          |
+| `ureq`                | `latest` (rustls, json) | HTTP Client    | Synchronous, lightweight, memory-safe TLS without OpenSSL system dependencies          |
 | `colored`             | `latest`          | Terminal Colors      | Clean, intuitive ANSI color output for terminal interfaces                             |
 | `indicatif`           | `latest`          | Progress Indicators  | Smooth spinners and progress indicators during background network queries              |
 | `thiserror`           | `latest`          | Error Handling       | Ergonomic typed domain error hierarchies without panics                                |
@@ -320,12 +330,18 @@ rust-recursive-deps-updater/
 - [x] Filter out and ignore `git` and `path` dependencies (process direct crates.io dependencies only).
 - [x] Unit tests for workspace discovery and ignore rule scoping.
 
-### Phase 3: crates.io Registry Client & SemVer Engine (`registry`)
+### Phase 3: crates.io Registry Client, Security & SemVer Engine (`registry`)
 
 - [x] Fix: Stop recursive discovery traversal on directories containing `.rrduconfig` (`sub-config: true`) ([#5](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/5)).
+- [x] Implement structured `StatusCodeSchema<T>` and `Module` enumeration for standardized diagnostic codes and uniform logging.
+- [x] Implement generic `CacheRegistry<T>` with `SystemTime` / `Duration` TTL evaluation and persistent storage in `~/.rrdu/cache/`.
+- [x] Implement response data models for crates.io Sparse Index (NDJSON), crates.io Web API, and RustSec security advisories.
+- [x] Implement `Client` skeleton integrating tri-cache architecture (`crates_io_index_cache`, `crates_io_api_cache`, `rustsec_json_cache`).
+- [ ] Implement network fetching in `client.rs` using `ureq` (rustls, json):
+  - Sparse Index fast queries for CI mode and existence checks.
+  - Web API fetching with 1-second rate-limiting delay between outgoing requests.
+  - RustSec advisory querying for security vulnerability audits.
 - [ ] Implement dual-mode logging infrastructure (`log` facade) routing to `./rrdu.log` (CLI mode, truncated on startup) or `stderr` (CI mode), replacing raw `println!` calls.
-- [ ] Implement `src/registry/client.rs` using `ureq` with `rustls` and strict timeouts.
-- [ ] Implement in-memory cache to avoid duplicate network queries.
 - [ ] Filter out yanked versions from registry responses.
 - [x] Implement SemVer comparison engine with exact Cargo SemVer rules (integrated in `src/workspace/project.rs`):
   - Post-1.0: Major changes = breaking (`[Need manual migration]`), Minor/Patch = compatible (`[No migration needed]`).
