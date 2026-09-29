@@ -10,6 +10,7 @@ pub mod constants;
 pub mod enums;
 pub mod errors;
 pub mod functions;
+pub mod status_codes;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
