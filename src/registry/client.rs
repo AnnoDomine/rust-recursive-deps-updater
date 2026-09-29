@@ -100,7 +100,6 @@ impl Client {
                     );
                     return Err(e);
                 };
-                sleep(TIME_BETWEEN_REQUESTS);
                 if let Err(e) = self.clone().call_api(&mut response_map, &k) {
                     self.set_crate_state(
                         k,
@@ -110,7 +109,6 @@ impl Client {
                     );
                     return Err(e);
                 };
-                sleep(TIME_BETWEEN_REQUESTS);
                 if let Err(e) = self.clone().call_audit(&mut response_map, &k) {
                     self.set_crate_state(
                         k,
@@ -120,8 +118,8 @@ impl Client {
                     );
                     return Err(e);
                 };
-                sleep(TIME_BETWEEN_REQUESTS);
                 self.set_crate_state(k, RegistryClientState::Succesed(response_map));
+                sleep(TIME_BETWEEN_REQUESTS);
             }
         }
         Ok(())
