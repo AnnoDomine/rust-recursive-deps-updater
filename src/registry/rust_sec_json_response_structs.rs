@@ -68,7 +68,7 @@ pub struct Affects {
 #[serde(rename_all = "camelCase")]
 pub struct DatabaseSpecific {
     pub categories: Vec<String>,
-    pub cvss: String,
+    pub cvss: Option<String>,
     pub informational: Value,
 }
 
