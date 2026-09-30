@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -10,7 +12,6 @@ pub struct CratesIOResponse {
     pub keywords: Vec<Keyword>,
     pub categories: Vec<Category>,
 }
-
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Crate {
@@ -38,10 +39,10 @@ pub struct Crate {
     pub newest_version: String,
     #[serde(rename = "max_stable_version")]
     pub max_stable_version: String,
-    pub description: String,
-    pub homepage: String,
-    pub documentation: Value,
-    pub repository: String,
+    pub description: Option<String>,
+    pub homepage: Option<String>,
+    pub documentation: Option<String>,
+    pub repository: Option<String>,
     pub links: Links,
     #[serde(rename = "exact_match")]
     pub exact_match: bool,
@@ -80,40 +81,36 @@ pub struct Version {
     #[serde(rename = "created_at")]
     pub created_at: String,
     pub downloads: i64,
-    pub features: Features,
+    pub features: HashMap<String, Vec<String>>,
     pub yanked: bool,
     #[serde(rename = "yank_message")]
     pub yank_message: Value,
     #[serde(rename = "lib_links")]
     pub lib_links: Value,
-    pub license: String,
+    pub license: Option<String>,
     pub links: Links2,
     #[serde(rename = "crate_size")]
     pub crate_size: i64,
     #[serde(rename = "published_by")]
-    pub published_by: PublishedBy,
+    pub published_by: Option<PublishedBy>,
     #[serde(rename = "audit_actions")]
     pub audit_actions: Vec<AuditAction>,
     pub checksum: String,
     #[serde(rename = "rust_version")]
-    pub rust_version: Value,
+    pub rust_version: Option<String>,
     #[serde(rename = "has_lib")]
-    pub has_lib: bool,
+    pub has_lib: Option<bool>,
     #[serde(rename = "bin_names")]
-    pub bin_names: Vec<String>,
-    pub edition: String,
-    pub description: String,
-    pub homepage: String,
-    pub documentation: Value,
-    pub repository: String,
+    pub bin_names: Option<Vec<Value>>,
+    pub edition: Option<String>,
+    pub description: Option<String>,
+    pub homepage: Option<String>,
+    pub documentation: Option<String>,
+    pub repository: Option<String>,
     #[serde(rename = "trustpub_data")]
     pub trustpub_data: Value,
     pub linecounts: Linecounts,
 }
-
-#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Features {}
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -129,9 +126,9 @@ pub struct Links2 {
 pub struct PublishedBy {
     pub id: i64,
     pub login: String,
-    pub name: String,
-    pub avatar: String,
-    pub url: String,
+    pub name: Option<String>,
+    pub avatar: Option<String>,
+    pub url: Option<String>,
     #[serde(rename = "github_username_matches")]
     pub github_username_matches: bool,
     #[serde(rename = "created_at")]
@@ -151,9 +148,9 @@ pub struct AuditAction {
 pub struct User {
     pub id: i64,
     pub login: String,
-    pub name: String,
-    pub avatar: String,
-    pub url: String,
+    pub name: Option<String>,
+    pub avatar: Option<String>,
+    pub url: Option<String>,
     #[serde(rename = "github_username_matches")]
     pub github_username_matches: bool,
     #[serde(rename = "created_at")]
@@ -163,7 +160,7 @@ pub struct User {
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Linecounts {
-    pub languages: Languages,
+    pub languages: HashMap<String, Languages>,
     #[serde(rename = "total_code_lines")]
     pub total_code_lines: i64,
     #[serde(rename = "total_comment_lines")]
@@ -173,13 +170,6 @@ pub struct Linecounts {
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Languages {
-    #[serde(rename = "Rust")]
-    pub rust: Rust,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Rust {
     #[serde(rename = "code_lines")]
     pub code_lines: i64,
     #[serde(rename = "comment_lines")]
