@@ -25,7 +25,9 @@ noyalib = "0.0.51"
 semver = "1.0.28"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+simple_logger = { version = "5.2.0", features = ["timestamps", "colors"] }
 thiserror = "2.0.21"
+time = { version = "0.3.55", features = ["macros"] }
 toml_edit = "0.25.15"
 ureq = { version = "3.4.2", features = ["rustls", "json"] }
 
