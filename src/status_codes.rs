@@ -18,6 +18,7 @@
 
 use std::fmt::Display;
 
+use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,7 +65,7 @@ pub struct StatusCodeSchema<T = ()> {
     pub meta: Option<T>,
 }
 
-impl<T> Display for StatusCodeSchema<T> {
+impl<T: Display> Display for StatusCodeSchema<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let formated_status_code = format!(
             "{:} [{:}{:}]",
@@ -72,21 +73,23 @@ impl<T> Display for StatusCodeSchema<T> {
             self.module.get_module_code(),
             self.code
         );
-        write!(f, "{formated_status_code} | {:}", self.message)
+        let meta = match &self.meta {
+            Some(m) => format!("\n{:#?}", m.to_string()),
+            None => "".to_string(),
+        };
+        write!(f, "{formated_status_code} | {:}{:}", self.message, meta)
     }
 }
 
-impl<T> StatusCodeSchema<T> {
-    pub fn with_meta(module: Module, code: u32, message: String, meta: T) -> Self {
+impl<T: Display> StatusCodeSchema<T> {
+    pub fn with_meta(module: Module, code: u32, message: impl Into<String>, meta: T) -> Self {
         Self {
             module,
             code,
-            message,
+            message: message.into(),
             meta: Some(meta),
         }
     }
-}
-impl<T> StatusCodeSchema<T> {
     pub fn simple(module: Module, code: u32, message: impl Into<String>) -> Self {
         Self {
             module,
@@ -95,4 +98,31 @@ impl<T> StatusCodeSchema<T> {
             meta: None,
         }
     }
+    pub fn log(&self, level: LevelFilter) {
+        match level {
+            LevelFilter::Error => log::error!("{:}", self),
+            LevelFilter::Warn => log::warn!("{:}", self),
+            LevelFilter::Info => log::info!("{:}", self),
+            LevelFilter::Debug => log::debug!("{:}", self),
+            LevelFilter::Trace => log::trace!("{:}", self),
+            LevelFilter::Off => {}
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! simple_status {
+    ($level:expr, $module:expr, $code:expr, $message:expr) => {{
+        let status =
+            $crate::status_codes::StatusCodeSchema::<String>::simple($module, $code, $message);
+        status.log($level);
+    }};
+}
+#[macro_export]
+macro_rules! meta_status {
+    ($level:expr, $module:expr, $code:expr, $message:expr, $meta:expr) => {{
+        let status =
+            $crate::status_codes::StatusCodeSchema::with_meta($module, $code, $message, $meta);
+        status.log($level);
+    }};
 }
