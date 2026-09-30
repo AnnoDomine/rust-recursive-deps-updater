@@ -1,4 +1,8 @@
-use std::{collections::HashMap, time::SystemTime};
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display},
+    time::SystemTime,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -241,7 +245,7 @@ pub struct CacheEntry<T> {
     pub response: T,
 }
 
-impl<T: Clone> CacheEntry<T> {
+impl<T: Clone + Display + Debug> CacheEntry<T> {
     pub fn get_ttl(&self) -> SystemTime {
         self.timestamp
     }
