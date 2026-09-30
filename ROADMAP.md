@@ -171,7 +171,7 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 
 ### 2.6 Dual-Mode Logging Infrastructure
 
-- **Architecture:** Pure safe Rust logger implementing the `log` facade (`debug!`, `info!`, `warn!`, `error!`).
+- **Architecture:** Pure safe Rust logger implementing the `log` facade (`debug!`, `info!`, `warn!`, `error!`) powered by `simple_logger` with `time` timestamp formatting. Diagnostic messages and status events are unified through `StatusCodeSchema<T>` and ergonomic macros (`simple_status!`, `meta_status!`).
 - **Mode 1 (Headless CI / `--run=scan` / `--run=full`):** Routes logs directly to `stderr` in the terminal for clean GitHub Actions and CI pipeline logging without polluting `stdout`.
 - **Mode 2 (Interactive CLI / `init`):** Routes logs exclusively into `./rrdu.log` in the execution folder, rewritten/truncated on every launch to keep the interactive terminal UI (spinners, paginated tables, navigation prompts) completely clean.
 
@@ -289,6 +289,9 @@ rust-recursive-deps-updater/
 | `ureq`                | `latest` (rustls, json) | HTTP Client    | Synchronous, lightweight, memory-safe TLS without OpenSSL system dependencies          |
 | `colored`             | `latest`          | Terminal Colors      | Clean, intuitive ANSI color output for terminal interfaces                             |
 | `indicatif`           | `latest`          | Progress Indicators  | Smooth spinners and progress indicators during background network queries              |
+| `log`                 | `~0.4`            | Logging Facade       | Standard Rust logging facade for structured status codes and module diagnostics        |
+| `simple_logger`       | `~5.2` (timestamps, colors) | Logger Implementation | Lightweight logger implementation providing clean console timestamps and colored output |
+| `time`                | `~0.3` (macros)   | Timestamp Formatting | Precise timestamp formatting for diagnostics and logger output                         |
 | `thiserror`           | `latest`          | Error Handling       | Ergonomic typed domain error hierarchies without panics                                |
 | _(native `std::fmt`)_ | Built-in          | Table Formatter      | Zero-dependency 5-column table renderer in `src/cli/table.rs`                          |
 | `tempfile`            | `latest` _(dev)_  | Integration Testing  | Isolated temporary workspaces for manifest modification verification                   |
@@ -337,12 +340,11 @@ rust-recursive-deps-updater/
 - [x] Implement generic `CacheRegistry<T>` with `SystemTime` / `Duration` TTL evaluation and persistent storage in `~/.rrdu/cache/`.
 - [x] Implement response data models for crates.io Sparse Index (NDJSON), crates.io Web API, and RustSec security advisories.
 - [x] Implement `Client` skeleton integrating tri-cache architecture (`crates_io_index_cache`, `crates_io_api_cache`, `rustsec_json_cache`).
-- [ ] Implement network fetching in `client.rs` using `ureq` (rustls, json):
-  - Sparse Index fast queries for CI mode and existence checks.
-  - Web API fetching with 1-second rate-limiting delay between outgoing requests.
-  - RustSec advisory querying for security vulnerability audits.
-- [ ] Implement dual-mode logging infrastructure (`log` facade) routing to `./rrdu.log` (CLI mode, truncated on startup) or `stderr` (CI mode), replacing raw `println!` calls.
-- [ ] Filter out yanked versions from registry responses.
+- [x] Implement network fetching in `client.rs` using `ureq` (rustls, json):
+  - [x] Sparse Index fast queries for CI mode and existence checks.
+  - [x] Web API fetching with 1-second rate-limiting delay between outgoing requests.
+  - [x] RustSec advisory querying for security vulnerability audits.
+- [x] Download real-world fixture responses (42 fixtures across 14 crates for index, API, and RustSec) and implement automated schema validation tests.
 - [x] Implement SemVer comparison engine with exact Cargo SemVer rules (integrated in `src/workspace/project.rs`):
   - Post-1.0: Major changes = breaking (`[Need manual migration]`), Minor/Patch = compatible (`[No migration needed]`).
   - Pre-1.0: `0.x` change = breaking (`[Need manual migration]`), `0.x.y` patch = compatible (`[No migration needed]`).
@@ -350,6 +352,8 @@ rust-recursive-deps-updater/
 
 ### Phase 4: Interactive CLI, Table Formatter & Headless Modes (`cli`)
 
+- [ ] Implement dual-mode logging infrastructure (`log` facade via `simple_logger`) routing to `./rrdu.log` (CLI mode, truncated on startup) or `stderr` (CI mode), replacing raw `println!` calls.
+- [ ] Filter out yanked versions from registry responses when selecting latest versions for display and updates.
 - [ ] Implement interactive banner, status presentation, and `indicatif` spinner.
 - [ ] Implement native zero-dependency table renderer in `src/cli/table.rs`.
 - [ ] Implement interactive pagination (`/next`, `/prev`, arrow keys, `updater.max-lines`).
