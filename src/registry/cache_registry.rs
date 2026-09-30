@@ -1,3 +1,8 @@
+//! Disk-backed caching mechanism for registry metadata.
+//!
+//! Stores serialized JSON responses in the user's home directory (`~/.rrdu/cache/`)
+//! with configurable Time-To-Live (TTL) expiration rules.
+
 use std::{
     collections::HashMap,
     env,
@@ -12,9 +17,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{constants::*, enums::*, meta_status, simple_status, status_codes::Module};
 
+/// In-memory and persistent cache registry storing response items of type `T`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CacheRegistry<T> {
+    /// In-memory key-value cache mapping crate names to timestamped entries.
     pub cache: HashMap<String, CacheEntry<T>>,
+    /// The specific category of data managed by this cache instance.
     pub cache_type: CacheType,
 }
 
@@ -30,6 +38,13 @@ impl Display for CacheType {
 
 #[allow(clippy::result_unit_err)]
 impl CacheType {
+    /// Resolves a `CacheType` variant from its cache filename.
+    ///
+    /// # Arguments
+    /// * `name` - Filename string to match against known cache constants.
+    ///
+    /// # Returns
+    /// Matching [`CacheType`] variant, or `Err(())` if unrecognized.
     pub fn get_cache_type(name: &str) -> Result<CacheType, ()> {
         match name {
             RRDU_REGISTRY_CACHE_CRATES_IO_API => Ok(CacheType::CratesIOApi),
@@ -47,6 +62,7 @@ impl CacheType {
         }
     }
 
+    /// Returns the cache expiration duration (TTL) for this cache type.
     pub fn get_ttl(&self) -> Duration {
         match self {
             CacheType::CratesIOIndex => CACHE_ENTRY_CRATES_IO_INDEX_TTL,
@@ -64,6 +80,10 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> Display for Cache
 
 #[allow(clippy::result_unit_err)]
 impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> {
+    /// Initializes a cache registry for the specified cache type, loading existing data from disk if present.
+    ///
+    /// # Arguments
+    /// * `cache_type` - The category of cached data to manage.
     pub fn new(cache_type: CacheType) -> Self {
         let mut cache_registry = Self {
             cache: HashMap::new(),
@@ -73,6 +93,7 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
         cache_registry
     }
 
+    /// Formats the cached entries into a human-readable list of debug strings.
     pub fn fmt_cache(&self) -> Vec<String> {
         let cache = self.cache.clone();
         let mut map: Vec<String> = Vec::new();
@@ -84,6 +105,11 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
         map
     }
 
+    /// Adds or replaces an entry in the cache with the current timestamp.
+    ///
+    /// # Arguments
+    /// * `key` - Cache key (crate name).
+    /// * `entry` - Value payload to cache.
     pub fn add_cache_entry(&mut self, key: &str, entry: T) {
         let timestamp = SystemTime::now();
         simple_status!(
@@ -101,6 +127,11 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
         );
     }
 
+    /// Determines whether a cached entry is still valid given its timestamp and allowed TTL.
+    ///
+    /// # Arguments
+    /// * `timestamp` - Creation timestamp of the cache entry.
+    /// * `ttl` - Maximum validity duration.
     pub fn use_cache(timestamp: SystemTime, ttl: Duration) -> bool {
         let now = SystemTime::now();
         if let Ok(diff) = now.duration_since(timestamp) {
@@ -115,6 +146,13 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
         false
     }
 
+    /// Retrieves a cached entry if it exists and has not expired according to its TTL.
+    ///
+    /// # Arguments
+    /// * `key` - Cache key (crate name).
+    ///
+    /// # Returns
+    /// `Some(entry)` if valid, `None` if absent or expired.
     pub fn get_cache_entry(&self, key: &str) -> Option<T> {
         if let Some(entry) = self.cache.get(key)
             && Self::use_cache(entry.timestamp, self.cache_type.get_ttl())
@@ -143,6 +181,13 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
         }
     }
 
+    /// Resolves the filesystem path to the cache file within `~/.rrdu/cache/`, creating parent directories if needed.
+    ///
+    /// # Returns
+    /// The target `PathBuf` for the cache file.
+    ///
+    /// # Errors
+    /// Returns `Err(())` if the user home directory cannot be resolved or created.
     pub fn get_cache_path(&self) -> Result<PathBuf, ()> {
         let mut cache_path = match env::home_dir() {
             Some(h) => h,
@@ -186,6 +231,10 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
         Ok(cache_path)
     }
 
+    /// Persists the current cache map to disk as JSON.
+    ///
+    /// # Arguments
+    /// * `file` - Optional explicit file path to write to. If `None`, defaults to [`Self::get_cache_path`].
     pub fn save_cache(&self, file: Option<&PathBuf>) {
         let cache_file = match file {
             Some(p) => p.clone(),
@@ -230,7 +279,12 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
         };
     }
 
-    /// Returns the cache for rrdu (<user-home-folder>/.rrdu/cache/)
+    /// Loads cached entries from disk (`<user-home>/.rrdu/cache/`).
+    ///
+    /// If the cache file does not exist, an empty file is initialized.
+    ///
+    /// # Returns
+    /// `Ok(())` on success, `Err(())` on I/O or deserialization failure.
     pub fn load_cache(&mut self) -> Result<(), ()> {
         let file_path = self.get_cache_path()?;
 
@@ -250,6 +304,16 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
         Ok(())
     }
 
+    /// Reads and deserializes a JSON cache file from disk.
+    ///
+    /// # Arguments
+    /// * `path` - Path to the cache file.
+    ///
+    /// # Returns
+    /// Deserialized map of cache entries.
+    ///
+    /// # Errors
+    /// Returns `Err(())` if file reading or JSON deserialization fails.
     pub fn get_reponse_deserialised(
         &self,
         path: &PathBuf,

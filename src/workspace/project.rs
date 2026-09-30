@@ -1,6 +1,7 @@
-//! Representation of prjects and dependencies
-//! The is not the representation for the config.
-//! It holds the information as a struct to handle navigation to the CLI and updating the Cargo.toml
+//! Representation of projects and dependencies.
+//!
+//! Provides models and parsers to inspect `Cargo.toml` manifests, map dependency sections,
+//! evaluate version differences against SemVer rules, and coordinate registry version fetching.
 
 use crate::{
     config::{model::*, rrdu_config::RrduConfig},
@@ -18,13 +19,17 @@ use std::path::PathBuf;
 use toml_edit::*;
 
 impl DependencyEntry {
-    /// Entry function for parsing the DEPENDENCY.
+    /// Entry function for parsing a dependency entry from a TOML item.
     ///
-    /// This function internal handles all posible schemas.
-    /// If a schema is not supported or wrong defined (e.g. no version key) it returns None to not getting mapped.
+    /// Handles simple string versions, inline tables, and standard tables.
+    /// If a format is unsupported or missing required keys, returns `None`.
     ///
-    /// * We only support dependencies which are downloadable and updateable from crates.io
-    /// * Additional at least the verion needs to be defined as a semver supported string ("MAJOR.MINOR.PATCH")
+    /// # Arguments
+    /// * `key` - The manifest TOML key for the dependency.
+    /// * `item` - The TOML AST item to parse.
+    ///
+    /// # Returns
+    /// An initialized [`DependencyEntry`] if valid, or `None` if the format is unsupported.
     pub fn new(key: &str, item: &Item) -> Option<Self> {
         match item {
             Item::Value(val @ Value::String(_)) => Some(Self::Simple(SimpleDependency {
@@ -158,12 +163,11 @@ impl DependencyEntry {
 
     /// Return the values needed for the DEPENDENCY row inside the CI and the CLI
     ///
-    /// Return:
-    /// * is_latest: Boolean
-    /// * needs_migration: Boolean
-    /// * message: String
+    /// # Arguments
+    /// * `latest` - The latest available version from the registry, if fetched.
     ///
-    /// `(Boolean, Boolean, String)`
+    /// # Returns
+    /// `(Boolean, Boolean, String)`: is_latest, needs_migration, message
     pub fn get_dependency_row_valus(&self, latest: Option<String>) -> DEPENDENCYRow {
         let version = self.version();
         match latest {
@@ -232,11 +236,11 @@ impl DependencyEntry {
 
     /// Check if the current version is the latest and when, if the latest could be need a migration
     ///
-    /// Return:
-    /// * is_latest: Boolean
-    /// * needs_migration: Boolean
+    /// # Arguments
+    /// * `latest` - The latest version string to compare against.
     ///
-    /// `(Boolean, Boolean)`
+    /// # Returns
+    /// `(Boolean, Boolean)`: `(is_latest, needs_migration)`
     pub fn check_if_latest(&self, latest: &str) -> (Boolean, Boolean) {
         let current_raw = match self.version() {
             DependencyVersion::Supported(v) => v.as_str(),
@@ -283,6 +287,9 @@ impl DependencyEntry {
     }
 
     /// Mark the dependency as excluded with a provided reason.
+    ///
+    /// # Arguments
+    /// * `reason` - The reason for exclusion.
     pub fn exclude_dep(&mut self, reason: &ExcludeReason) {
         match self {
             Self::Simple(d) => d.version = DependencyVersion::Excluded(reason.clone()),
@@ -315,6 +322,13 @@ impl std::fmt::Display for DependencySection {
 }
 
 impl DependencySection {
+    /// Parses a section header string into a structured [`DependencySection`].
+    ///
+    /// # Arguments
+    /// * `section` - Section string (e.g. `dependencies`, `target.x86_64.dev-dependencies`).
+    ///
+    /// # Returns
+    /// The corresponding [`DependencySection`], or `None` if unrecognized.
     pub fn new(section: &str) -> Option<Self> {
         match section {
             "dependencies" => Some(Self::Normal),
@@ -337,6 +351,13 @@ impl DependencySection {
         }
     }
 
+    /// Resolves target dependency kind from a suffix string.
+    ///
+    /// # Arguments
+    /// * `kind` - Section kind suffix (e.g. `dependencies`, `dev-dependencies`).
+    ///
+    /// # Returns
+    /// The corresponding [`TargetDepKind`], or `None`.
     pub fn get_target_kind(kind: &str) -> Option<TargetDepKind> {
         match kind {
             "dependencies" => Some(TargetDepKind::Normal),
@@ -346,6 +367,13 @@ impl DependencySection {
         }
     }
 
+    /// Retrieves a mutable reference to the table corresponding to this section in the manifest.
+    ///
+    /// # Arguments
+    /// * `doc` - Mutable reference to the TOML document.
+    ///
+    /// # Returns
+    /// A mutable [`TableLike`] reference if the section exists.
     pub fn get_table_mut<'a>(&self, doc: &'a mut DocumentMut) -> Option<&'a mut dyn TableLike> {
         match self {
             Self::Normal => doc["dependencies"].as_table_like_mut(),
@@ -369,6 +397,13 @@ impl DependencySection {
         }
     }
 
+    /// Retrieves a reference to the AST item corresponding to this section in the manifest.
+    ///
+    /// # Arguments
+    /// * `doc` - Reference to the TOML document.
+    ///
+    /// # Returns
+    /// A reference to the [`Item`] if found.
     pub fn get_item<'a>(&self, doc: &'a DocumentMut) -> Option<&'a Item> {
         match self {
             Self::Normal => Some(&doc["dependencies"]),
@@ -390,6 +425,10 @@ impl DependencySection {
         }
     }
 
+    /// Checks whether this section is a table dependency (e.g. `[dependencies.serde]`).
+    ///
+    /// # Returns
+    /// The TOML key name if it is a table dependency section.
     pub fn is_dependency_section(&self) -> Option<&String> {
         match self {
             Self::Table { toml_key, .. } => Some(toml_key),
@@ -398,15 +437,25 @@ impl DependencySection {
     }
 }
 
+/// Represents a parsed Cargo project or crate manifest within a workspace.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Projects {
+    /// Name of the project or crate.
     pub name: String,
+    /// Path to the directory containing `Cargo.toml`.
     pub path: PathBuf,
+    /// Parsed dependencies grouped by section.
     pub deps: ProjectDEPENDENCY,
+    /// Associated project configuration.
     pub config: ProjectConfig,
 }
 
 impl Projects {
+    /// Creates a new project instance from configuration.
+    ///
+    /// # Arguments
+    /// * `config` - Project configuration settings.
+    /// * `is_excuded` - Boolean indicating whether the project is excluded.
     pub fn new(config: ProjectConfig, is_excuded: Boolean) -> Self {
         Self {
             name: config.project.clone(),
@@ -423,6 +472,7 @@ impl Projects {
         }
     }
 
+    /// Parses the project's `Cargo.toml` manifest and extracts all dependency sections.
     pub fn parse_project(&mut self) {
         match self.deps {
             ProjectDEPENDENCY::ExcludedProject => {
@@ -459,6 +509,16 @@ impl Projects {
         }
     }
 
+    /// Reads and parses a `Cargo.toml` file from the specified path into a mutable document.
+    ///
+    /// # Arguments
+    /// * `toml_path` - Path to the manifest file.
+    ///
+    /// # Returns
+    /// Parsed mutable TOML document.
+    ///
+    /// # Errors
+    /// Returns [`FileError::Io`] or [`FileError::Toml`] if reading or parsing fails.
     pub fn get_toml_content_from_path(toml_path: PathBuf) -> Result<DocumentMut, FileError> {
         let file = std::fs::read_to_string(&toml_path).map_err(|source| FileError::Io {
             path: toml_path.clone(),
@@ -477,6 +537,10 @@ impl Projects {
         Self::get_toml_content_from_path(toml_path)
     }
 
+    /// Sets the parsed dependencies for this project.
+    ///
+    /// # Arguments
+    /// * `deps` - The project dependencies.
     pub fn set_deps(&mut self, deps: ProjectDEPENDENCY) {
         self.deps = deps;
     }
@@ -509,6 +573,13 @@ impl Projects {
         DEPENDENCYSectionMap::Map(map)
     }
 
+    /// Recursively traverses TOML AST tables to locate dependency sections.
+    ///
+    /// # Arguments
+    /// * `section` - Current parent section path if any.
+    /// * `key` - Current table key.
+    /// * `item` - AST item to inspect.
+    /// * `collector` - Map collecting discovered dependency sections.
     pub fn search_sections(
         &self,
         section: Option<String>,
@@ -581,7 +652,10 @@ impl Projects {
         self.set_deps(ProjectDEPENDENCY::Map(mapped_deps));
     }
 
-    /// Takes a mutatable hashmap to collect the included and supported dependencies to scan for newer versions
+    /// Takes a mutatable hashmap to collect the included and supported dependencies to scan for newer versions.
+    ///
+    /// # Arguments
+    /// * `collected_deps` - Mutable map collecting unique crate names for registry querying.
     pub fn list_all_deps(&self, collected_deps: &mut HashMap<String, DependencyCollectionVersion>) {
         if let ProjectDEPENDENCY::Map(sec_map) = &self.deps {
             for deps in sec_map.values() {
@@ -603,10 +677,14 @@ impl Projects {
     }
 }
 
+/// Manages the collection of projects across the workspace and coordinates dependency version checks.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Workspace {
+    /// All discovered and parsed projects.
     pub projects: Vec<Projects>,
+    /// Unique dependencies across all projects to be queried against the registry.
     pub collected_deps: HashMap<String, DependencyCollectionVersion>,
+    /// Registry client containing fetched responses after network calls.
     pub client: Option<Client>,
 }
 
@@ -617,6 +695,7 @@ impl Default for Workspace {
 }
 
 impl Workspace {
+    /// Initializes an empty workspace with no projects or collected dependencies.
     pub fn new() -> Self {
         Self {
             projects: Vec::new(),
@@ -629,10 +708,13 @@ impl Workspace {
     /// Trigger Self::collect_projects if config could loaded (is supported by the executed version of 'rrdu' and is present).
     /// Automatic respects config key 'workspace.sub-config'.
     ///
-    /// Arguments:
-    /// * path: Path to .rrduconfig yaml.
+    /// # Arguments
+    /// * `path` - Path to .rrduconfig yaml.
     ///   * If provided, loads a config from a specific path (Calls 'RrduConfig::load_from_path(path)')
     ///   * None if is not provided to run the initial call (Calls 'RrduConfig::new()' as it loads the rrdu config from the executed path)
+    ///
+    /// # Errors
+    /// Returns [`FileError`] if configuration loading or project parsing fails.
     pub fn read_rrdu_config(&mut self, path: Option<PathBuf>) -> Result<(), FileError> {
         let config = match &path {
             Some(p) => RrduConfig::load_from_path(p),

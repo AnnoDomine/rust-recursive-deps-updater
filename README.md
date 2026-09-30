@@ -153,7 +153,7 @@ workspace:
 updater:
   exclude:
     - excluded_project
-  auto-update: none # Options: "none", "*", "*-force"
+  auto-update: none # Options: `none`, `semver-safe`, or `full`
   auto-scan: true # Options: true, false, or list of project names
   max-lines: 50 # Maximum entries per page during interactive pagination
   version: 0.0.3 # Version where the config file was created
@@ -169,7 +169,7 @@ updater:
 | `workspace.exclude.section` | `mapping`      | Section-specific exclusions (e.g. `dev-dependencies`, table sections) _(optional)_      |
 | `workspace.sub-config`      | `bool`         | Set to `true` if the sub-project provides its own `.rrduconfig` _(default: false)_      |
 | `updater.exclude`           | `list`         | Folders to completely skip during recursive scans _(optional)_                          |
-| `updater.auto-update`       | `string`       | Default update behavior for `--run=full` (`none`, `*`, `*-force`)                       |
+| `updater.auto-update`       | `string`       | Default update behavior for `--run=full` (`none`, `semver-safe`, or `full`)                       |
 | `updater.auto-scan`         | `bool \| list` | Scan trigger behavior upon CLI launch _(default: true)_                                 |
 | `updater.max-lines`         | `int`          | Maximum items displayed per page in interactive mode _(default: 50)_                    |
 | `updater.version`           | `string`       | Version of rrdu the config was created with, used for compatibility checks              |

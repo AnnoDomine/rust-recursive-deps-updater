@@ -1,20 +1,27 @@
+//! Configuration data models and serialization schemas.
+//!
+//! Defines [`ProjectConfig`], [`ExcludeConfig`], and [`UpdaterConfig`] models matching
+//! the `.rrduconfig` YAML format, including path resolution and dependency exclusion helpers.
+
 use std::{collections::HashMap, env, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{constants::*, enums::*, errors::*, functions::*};
 
+/// Dependency exclusion rules configured for a project.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct ExcludeConfig {
-    /// Project wide excluded dependencies
+    /// Project-wide excluded dependency names.
     #[serde(default)]
     pub project: Vec<String>,
-    /// Section specified excluded dependencies
+    /// Section-specific excluded dependencies mapped by section header name.
     #[serde(default)]
     pub section: HashMap<String, Vec<String>>,
 }
 
+/// Configuration settings for an individual project or crate within a workspace.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ProjectConfig {
@@ -23,18 +30,23 @@ pub struct ProjectConfig {
     /// - `name` key from Cargo.toml
     /// - Last folder from the discovery, if it is a sub-config project
     pub project: String,
-    /// Path to `Cargo.toml` of `.rrduconfig` if sub-config
+    /// Path to `Cargo.toml` or `.rrduconfig` if sub-config.
     #[serde(alias = "toml")]
     pub path: String,
-    /// List of dependencies excluded from updating
+    /// List of dependencies excluded from updating.
     #[serde(default)]
     pub exclude: ExcludeConfig,
-    /// Identifier, if the project is a `.rrduconfig` link
+    /// Identifier indicating if the project delegates to a sub-project `.rrduconfig`.
     #[serde(default)]
     pub sub_config: SubConfig,
 }
 
 impl ProjectConfig {
+    /// Creates a new project configuration.
+    ///
+    /// # Arguments
+    /// * `project` - The name of the project or crate.
+    /// * `path` - Relative path to the project manifest or sub-config.
     pub fn new(project: String, path: String) -> Self {
         Self {
             project,
@@ -47,14 +59,30 @@ impl ProjectConfig {
         }
     }
 
+    /// Sets whether this project delegates to a sub-configuration file.
+    ///
+    /// # Arguments
+    /// * `is_sub_config` - Boolean flag indicating sub-config status.
     pub fn set_sub_config(&mut self, is_sub_config: bool) {
         self.sub_config = SubConfig::Bool(is_sub_config);
     }
 
+    /// Sets the sub-configuration variant for this project.
+    ///
+    /// # Arguments
+    /// * `sub_config` - The `SubConfig` enum variant.
     pub fn define_sub_config(&mut self, sub_config: SubConfig) {
         self.sub_config = sub_config;
     }
 
+    /// Resolves and validates the path to the sub-project's `.rrduconfig` file.
+    ///
+    /// # Returns
+    /// Validated `PathBuf` pointing to `.rrduconfig`.
+    ///
+    /// # Errors
+    /// Returns [`FileError::ConfigError`] if path traversal is detected.
+    /// Returns [`FileError::InvalidFileName`] if the filename is invalid.
     pub fn get_sub_config_path(&self) -> Result<PathBuf, FileError> {
         match validate_path_traversal(&PathBuf::from(&self.path)) {
             Ok(p) => validate_path_and_file_name(&p, RRDUCONFIG_FILE_NAME),
@@ -62,6 +90,11 @@ impl ProjectConfig {
         }
     }
 
+    /// Adds a dependency name to the exclusion rules.
+    ///
+    /// # Arguments
+    /// * `area` - The scope of exclusion (project-wide or specific section).
+    /// * `dep` - Optional dependency name to exclude.
     pub fn exclude_dep(&mut self, area: ExcludeArea, dep: Option<String>) {
         match area {
             ExcludeArea::Project => {
@@ -94,22 +127,23 @@ impl ProjectConfig {
     }
 }
 
+/// Global updater settings controlling automated scans, updates, and UI display.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct UpdaterConfig {
-    /// List of excluded projects from the workspace list
+    /// List of excluded projects from the workspace list.
     #[serde(default)]
     pub exclude: Vec<String>,
-    /// Automatic update all dependencies (excludes these ones from the project defined excluded and excluded projects)
+    /// Automatic update mode (`none`, `semver-safe`, or `full`).
     #[serde(default = "default_auto_update")]
     pub auto_update: String,
-    /// Automatic scan for updates of dependencies (excludes these ones from the project defined excluded and excluded projects)
+    /// Whether to automatically scan for outdated dependencies on start.
     #[serde(default = "default_auto_scan")]
     pub auto_scan: bool,
-    /// Scroll area for interactive CLI (does not affect CI mode)
+    /// Maximum line display limit for pagination in interactive CLI.
     #[serde(default = "default_max_lines")]
     pub max_lines: usize,
-    /// Version where the `.rrduconfig` was created.
+    /// Schema version string of the configuration file.
     #[serde(default)]
     pub version: Option<String>,
 }
@@ -124,6 +158,8 @@ fn default_auto_scan() -> bool {
 fn default_max_lines() -> usize {
     50
 }
+
+/// Returns the current running `rrdu` package version string.
 pub fn get_rrdu_version() -> String {
     let current = env!("CARGO_PKG_VERSION");
     String::from(current)
@@ -142,6 +178,10 @@ impl Default for UpdaterConfig {
 }
 
 impl UpdaterConfig {
+    /// Adds a project name to the updater exclusion list.
+    ///
+    /// # Arguments
+    /// * `project` - The name of the project to exclude from updates.
     pub fn exclude_project(&mut self, project: String) {
         self.exclude.push(project);
     }

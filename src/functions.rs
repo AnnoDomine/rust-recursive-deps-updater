@@ -1,11 +1,26 @@
+//! Path manipulation and validation helper functions.
+//!
+//! Provides functions to validate manifest file names, check against path traversal
+//! vulnerabilities, and construct absolute paths relative to the current working directory.
+
 use std::path::{Component, Path, PathBuf};
 
 use crate::errors::{ConfigError, FileError};
 
-/// Validates a path and file name
+/// Validates a path and expected file name.
 ///
-/// Rise an error if file name is not the requested.
-/// If the path does not have a file attached, add the requested file name and return the full path incl file name.
+/// If `path` is a directory or has no file component, appends `file_name` and returns the path.
+/// If `path` already points to a file, verifies that its filename matches `file_name`.
+///
+/// # Arguments
+/// * `path` - The path to validate.
+/// * `file_name` - The expected file name (e.g. `Cargo.toml`).
+///
+/// # Returns
+/// The normalized `PathBuf` terminating in `file_name`.
+///
+/// # Errors
+/// Returns [`FileError::InvalidFileName`] if the path references an unexpected file name.
 pub fn validate_path_and_file_name(path: &Path, file_name: &str) -> Result<PathBuf, FileError> {
     let p = if path.is_file() {
         if path.file_name().and_then(|n| n.to_str()) == Some(file_name) {
@@ -29,11 +44,18 @@ pub fn validate_path_and_file_name(path: &Path, file_name: &str) -> Result<PathB
     Ok(p)
 }
 
-/// Validates the provided path does not includes traversal or is called from root.
+/// Validates that the provided path does not contain traversal components or root references.
 ///
-/// Return:
-/// * PathBuf: If the path is valid
-/// * Error: If the path is called from root or includes traversal
+/// Rejects any path component matching `..`, `/` (root), or Windows drive prefixes (`C:\`).
+///
+/// # Arguments
+/// * `path` - The path to inspect for traversal attempts.
+///
+/// # Returns
+/// A safe `PathBuf` if validation succeeds.
+///
+/// # Errors
+/// Returns [`ConfigError::InsecurePath`] if any traversal or root component is detected.
 pub fn validate_path_traversal(path: &Path) -> Result<PathBuf, ConfigError> {
     for path_comp in path.components() {
         match path_comp {
@@ -46,7 +68,20 @@ pub fn validate_path_traversal(path: &Path) -> Result<PathBuf, ConfigError> {
     Ok(path.to_path_buf())
 }
 
-/// Simple global function to retreive the path constructed from the execution path
+/// Constructs an absolute path from the current working directory.
+///
+/// Optionally appends and validates the provided `file_name`.
+///
+/// # Arguments
+/// * `path` - Relative path to resolve against the working directory.
+/// * `file_name` - Optional expected file name to attach and validate.
+///
+/// # Returns
+/// The resolved absolute `PathBuf`.
+///
+/// # Errors
+/// Returns [`FileError::Io`] if retrieving the current working directory fails.
+/// Returns [`FileError::InvalidFileName`] if `file_name` validation fails.
 pub fn create_absolute_path(path: &Path, file_name: Option<&str>) -> Result<PathBuf, FileError> {
     let mut abolute_path = match std::env::current_dir() {
         Ok(current) => current,
