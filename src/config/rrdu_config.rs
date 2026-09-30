@@ -118,11 +118,23 @@ impl RrduConfig {
             Err(_) => return Err(ConfigError::InsecurePath(Path::new("").to_path_buf())),
         };
         if config_path.exists() {
+            simple_status!(
+                log::LevelFilter::Warn,
+                Module::CONFIGURATION,
+                200,
+                "Config file already exists. To create a new one, delete it and run 'rrdu --init'."
+            );
             return Ok(());
         }
-        let file = std::fs::File::create(config_path)?;
+        let file = std::fs::File::create(&config_path)?;
         let writer = std::io::BufWriter::new(file);
         noyalib::to_writer_with_config(writer, self, &serializer_config)?;
+        simple_status!(
+            log::LevelFilter::Info,
+            Module::CONFIGURATION,
+            200,
+            format!("Configuration initialized and saved to '{:?}'", config_path)
+        );
         Ok(())
     }
 
@@ -132,6 +144,12 @@ impl RrduConfig {
             Ok(f) => f,
             Err(_) => return Err(ConfigError::InsecurePath(path.as_ref().to_path_buf())),
         };
+        simple_status!(
+            log::LevelFilter::Debug,
+            Module::CONFIGURATION,
+            100,
+            format!("Loading configuration from '{:?}'", config_path)
+        );
         let content = std::fs::File::open(config_path)?;
         let reader = std::io::BufReader::new(content);
         let deserializer_config = ParserConfig::new();
@@ -145,7 +163,18 @@ impl RrduConfig {
         }
 
         match check_config_compatibility(&yaml) {
-            ConfigCompatibility::Compatible => Ok(yaml),
+            ConfigCompatibility::Compatible => {
+                simple_status!(
+                    log::LevelFilter::Debug,
+                    Module::CONFIGURATION,
+                    200,
+                    format!(
+                        "Configuration loaded and verified compatible ({} workspace project(s))",
+                        yaml.workspace.len()
+                    )
+                );
+                Ok(yaml)
+            }
             ConfigCompatibility::LegacyMissingVersion => Err(ConfigError::LegacyConfiguration),
             ConfigCompatibility::OutdatedVersion(found, required) => {
                 Err(ConfigError::IncompatibleVersion {
