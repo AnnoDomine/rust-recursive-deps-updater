@@ -90,7 +90,7 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
             log::LevelFilter::Debug,
             Module::CACHE,
             200,
-            format!("{:} cached. '{:?}'", key, self.cache_type)
+            format!("{:} cached. Type: '{:?}'", key, self.cache_type)
         );
         self.cache.insert(
             key.to_string(),
@@ -124,7 +124,7 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
                 Module::CACHE,
                 200,
                 format!(
-                    "Cache entry found and valid for '{key}'. '{:?}'",
+                    "Cache entry found and valid for '{key}'. Type: '{:?}'",
                     self.cache_type
                 )
             );
@@ -135,7 +135,7 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
                 Module::CACHE,
                 404,
                 format!(
-                    "No cache entry found or valid for '{key}'. '{:?}'",
+                    "No cache entry found or valid for '{key}'. Type: '{:?}'",
                     self.cache_type
                 )
             );
@@ -203,7 +203,7 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
                         log::LevelFilter::Error,
                         Module::CACHE,
                         400,
-                        format!("Error while write cache file. '{:}'", self.cache_type),
+                        format!("Error while write cache file. Type: '{:}'", self.cache_type),
                         save_err
                     );
                 } else {
@@ -211,7 +211,7 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
                         log::LevelFilter::Info,
                         Module::CACHE,
                         200,
-                        format!("Cache saved. '{:?}'", self.cache_type)
+                        format!("Cache saved. Type: '{:?}'", self.cache_type)
                     );
                 }
             }
@@ -220,7 +220,10 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
                     log::LevelFilter::Error,
                     Module::CACHE,
                     500,
-                    format!("Error while create cache file. '{:}'", self.cache_type),
+                    format!(
+                        "Error while create cache file. Type: '{:}'",
+                        self.cache_type
+                    ),
                     create_err
                 );
             }
