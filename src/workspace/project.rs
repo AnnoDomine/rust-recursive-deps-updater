@@ -10,6 +10,7 @@ use crate::{
     functions::*,
     meta_status,
     registry::client::Client,
+    simple_status,
     status_codes::Module,
 };
 use std::collections::HashMap;
@@ -424,8 +425,24 @@ impl Projects {
 
     pub fn parse_project(&mut self) {
         match self.deps {
-            ProjectDEPENDENCY::ExcludedProject => {}
+            ProjectDEPENDENCY::ExcludedProject => {
+                simple_status!(
+                    log::LevelFilter::Debug,
+                    Module::WORKSPACE,
+                    100,
+                    format!("Skipping excluded project '{}'", self.name)
+                );
+            }
             ProjectDEPENDENCY::Map(_) => {
+                simple_status!(
+                    log::LevelFilter::Debug,
+                    Module::WORKSPACE,
+                    100,
+                    format!(
+                        "Parsing Cargo.toml for project '{}' at '{:?}'",
+                        self.name, self.path
+                    )
+                );
                 match self.get_toml_content() {
                     Ok(toml) => self.collect_sections(toml),
                     Err(e) => {
@@ -433,9 +450,9 @@ impl Projects {
                             log::LevelFilter::Error,
                             Module::WORKSPACE,
                             400,
-                            "Error while parsing index item.".to_string(),
+                            format!("Error while reading Cargo.toml for project '{}'", self.name),
                             e
-                        )
+                        );
                     }
                 };
             }
@@ -551,6 +568,16 @@ impl Projects {
                 mapped_deps.insert(sec.clone(), self.map_deps(sec, toml_doc.clone()));
             }
         }
+        simple_status!(
+            log::LevelFilter::Trace,
+            Module::WORKSPACE,
+            100,
+            format!(
+                "Project '{}': mapped {} dependency section(s)",
+                self.name,
+                mapped_deps.len()
+            )
+        );
         self.set_deps(ProjectDEPENDENCY::Map(mapped_deps));
     }
 
@@ -561,6 +588,12 @@ impl Projects {
                 if let DEPENDENCYSectionMap::Map(dep_map) = deps {
                     for dep in dep_map.values() {
                         if let Ok(p) = dep.is_dep_included() {
+                            simple_status!(
+                                log::LevelFilter::Trace,
+                                Module::WORKSPACE,
+                                100,
+                                format!("Project '{}': registered dependency '{}'", self.name, p)
+                            );
                             collected_deps.insert(p.to_string(), DependencyCollectionVersion::None);
                         };
                     }
@@ -616,8 +649,26 @@ impl Workspace {
 
     /// Collects the projects from a config and applies excluded definition.
     fn collect_projects(&mut self, config: RrduConfig) -> Result<(), FileError> {
+        simple_status!(
+            log::LevelFilter::Info,
+            Module::WORKSPACE,
+            100,
+            format!(
+                "Collecting projects from configuration (total: {})",
+                config.workspace.len()
+            )
+        );
         for project in config.workspace {
             if config.updater.exclude.contains(&project.project) {
+                simple_status!(
+                    log::LevelFilter::Debug,
+                    Module::WORKSPACE,
+                    100,
+                    format!(
+                        "Project '{}' marked as excluded by updater configuration",
+                        project.project
+                    )
+                );
                 self.projects.push(Projects::new(project, Boolean::True));
             } else {
                 self.add_project(project)?;
@@ -633,9 +684,27 @@ impl Workspace {
         match project.sub_config {
             SubConfig::Bool(true) => {
                 let sub_config_path = project.get_sub_config_path()?;
+                simple_status!(
+                    log::LevelFilter::Debug,
+                    Module::WORKSPACE,
+                    100,
+                    format!(
+                        "Delegating project '{}' to sub-config at '{:?}'",
+                        project.project, sub_config_path
+                    )
+                );
                 self.read_rrdu_config(Some(sub_config_path))?;
             }
             _ => {
+                simple_status!(
+                    log::LevelFilter::Debug,
+                    Module::WORKSPACE,
+                    100,
+                    format!(
+                        "Processing project '{}' at '{}'",
+                        project.project, project.path
+                    )
+                );
                 let mut p = Projects::new(project, Boolean::False);
                 p.parse_project();
                 p.list_all_deps(&mut self.collected_deps);
@@ -647,9 +716,24 @@ impl Workspace {
 
     /// Fetch the dependency versions from 'crates.io'
     pub fn fetch_latest_versions(&mut self) {
+        simple_status!(
+            log::LevelFilter::Info,
+            Module::WORKSPACE,
+            100,
+            format!(
+                "Fetching latest versions for {} unique collected dependencies...",
+                self.collected_deps.len()
+            )
+        );
         let mut client = Client::new();
         client.map_crates(self.collected_deps.clone());
         client.start_calls();
+        simple_status!(
+            log::LevelFilter::Info,
+            Module::WORKSPACE,
+            200,
+            "Finished fetching dependency metadata from registry."
+        );
         self.client = Some(client);
     }
 }

@@ -27,8 +27,8 @@ use serde::{Deserialize, Serialize};
 use toml_edit::{Item, Value};
 
 use crate::{
-    config::model::ProjectConfig, constants::*, errors::*, functions::*,
-    workspace::project::Projects,
+    config::model::ProjectConfig, constants::*, errors::*, functions::*, simple_status,
+    status_codes::Module, workspace::project::Projects,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,6 +43,12 @@ pub struct Discovery {
 
 impl Discovery {
     pub fn new(current: PathBuf, ignored_before: Vec<PathBuf>) -> Result<Self, FileError> {
+        simple_status!(
+            log::LevelFilter::Debug,
+            Module::DISCOVERY,
+            100,
+            format!("Starting discovery in folder: {:?}", current)
+        );
         let mut discovery = Self {
             ignore: Self::prepare_ignored(&current, ignored_before),
             has_toml: false,
@@ -53,6 +59,17 @@ impl Discovery {
         };
         discovery.scan_dir()?;
         discovery.scan_for_rrduconfig()?;
+        simple_status!(
+            log::LevelFilter::Trace,
+            Module::DISCOVERY,
+            100,
+            format!(
+                "Completed discovery scan for {:?}: has_toml={}, next_depth={}",
+                discovery.current_folder,
+                discovery.has_toml,
+                discovery.next_depth.len()
+            )
+        );
         Ok(discovery)
     }
 
@@ -61,10 +78,22 @@ impl Discovery {
     }
 
     fn add_to_ignore(&mut self, path: PathBuf) {
+        simple_status!(
+            log::LevelFilter::Trace,
+            Module::DISCOVERY,
+            100,
+            format!("Added to ignore list: {:?}", path)
+        );
         self.ignore.push(path);
     }
 
     fn remove_from_ignore(&mut self, path: PathBuf) {
+        simple_status!(
+            log::LevelFilter::Trace,
+            Module::DISCOVERY,
+            100,
+            format!("Removed from ignore list (! unignore): {:?}", path)
+        );
         self.ignore.retain(|e| e != &path && !e.starts_with(&path));
     }
 
@@ -114,6 +143,17 @@ impl Discovery {
             .cloned()
             .collect();
 
+        simple_status!(
+            log::LevelFilter::Trace,
+            Module::DISCOVERY,
+            100,
+            format!(
+                "Queued {} subfolder(s) for recursive scan in {:?}",
+                subfolders.len(),
+                self.current_folder
+            )
+        );
+
         for folder in subfolders {
             self.add_folder(&folder);
         }
@@ -126,6 +166,12 @@ impl Discovery {
             .contains(&PathBuf::from(RRDUCONFIG_FILE_NAME))
         {
             if let Some(name) = self.current_folder.to_str() {
+                simple_status!(
+                    log::LevelFilter::Info,
+                    Module::DISCOVERY,
+                    200,
+                    format!("Discovered sub-config (.rrduconfig) at '{name}'")
+                );
                 self.apply_found_project(name.to_string(), name.to_string(), true);
             };
         } else {
@@ -170,6 +216,15 @@ impl Discovery {
         {
             self.set_has_toml(true);
             let project = self.parse_cargo_toml()?;
+            simple_status!(
+                log::LevelFilter::Info,
+                Module::DISCOVERY,
+                200,
+                format!(
+                    "Discovered project '{}' at '{}'",
+                    project.project, project.path
+                )
+            );
             self.found_project = Some(project);
         }
         self.list_ignore_by_default_folders()
@@ -189,9 +244,31 @@ impl Discovery {
             .cloned()
             .collect();
 
+        if !hidden_folders.is_empty() {
+            simple_status!(
+                log::LevelFilter::Trace,
+                Module::DISCOVERY,
+                100,
+                format!(
+                    "Ignoring {} hidden folder(s) in {:?}",
+                    hidden_folders.len(),
+                    self.current_folder
+                )
+            );
+        }
+
         self.ignore.extend(hidden_folders);
 
         if self.has_toml {
+            simple_status!(
+                log::LevelFilter::Trace,
+                Module::DISCOVERY,
+                100,
+                format!(
+                    "Crate manifest detected: auto-ignoring 'target' and 'src' in {:?}",
+                    self.current_folder
+                )
+            );
             self.add_to_ignore(PathBuf::from("target"));
             self.add_to_ignore(PathBuf::from("src"));
         }
@@ -249,6 +326,12 @@ impl Discovery {
             .dir_entries
             .contains(&PathBuf::from(GITIGNORE_FILE_NAME))
         {
+            simple_status!(
+                log::LevelFilter::Debug,
+                Module::DISCOVERY,
+                100,
+                format!("Parsing .gitignore in {:?}", self.current_folder)
+            );
             let content = self.get_splitted_ignore_content(GITIGNORE_FILE_NAME.to_string())?;
             self.parse_ignore_file(content);
         }
@@ -262,6 +345,12 @@ impl Discovery {
             .dir_entries
             .contains(&PathBuf::from(RRDUIGNORE_FILE_NAME))
         {
+            simple_status!(
+                log::LevelFilter::Debug,
+                Module::DISCOVERY,
+                100,
+                format!("Parsing .rrduignore in {:?}", self.current_folder)
+            );
             let content = self.get_splitted_ignore_content(RRDUIGNORE_FILE_NAME.to_string())?;
             self.parse_ignore_file(content);
         }

@@ -10,6 +10,7 @@ use ureq::{
 use crate::{
     constants::*,
     enums::*,
+    meta_status,
     registry::{
         cache_registry::CacheRegistry,
         crates_index_response_structs::{CratesIndexItem, CratesIndexResponseParsed},
@@ -101,6 +102,15 @@ impl Client {
             .filter(|(_, state)| **state == RegistryClientState::Uninitialised)
             .map(|(k, _)| k.clone())
             .collect();
+        simple_status!(
+            LevelFilter::Info,
+            Module::REGISTRYCLIENT,
+            100,
+            format!(
+                "Starting registry queries for {} uninitialised crate(s)...",
+                uninitialised.len()
+            )
+        );
         for k in uninitialised {
             let mut response_map = CrateResponses::new();
             self.set_crate_state(k.clone(), RegistryClientState::Loading);
@@ -111,6 +121,13 @@ impl Client {
                 format!("Fetching metadata for '{k}'...")
             );
             if let Err(e) = self.call_index(&mut response_map, &k) {
+                meta_status!(
+                    LevelFilter::Error,
+                    Module::REGISTRYCLIENT,
+                    500,
+                    format!("Failed to query sparse index for '{k}'"),
+                    &e
+                );
                 self.set_crate_state(
                     k,
                     RegistryClientState::Errored(crate::errors::CollectionVersionError::Other(
@@ -118,6 +135,13 @@ impl Client {
                     )),
                 );
             } else if let Err(e) = self.call_api(&mut response_map, &k) {
+                meta_status!(
+                    LevelFilter::Error,
+                    Module::REGISTRYCLIENT,
+                    500,
+                    format!("Failed to query API metadata for '{k}'"),
+                    &e
+                );
                 self.set_crate_state(
                     k,
                     RegistryClientState::Errored(crate::errors::CollectionVersionError::Other(
@@ -136,6 +160,12 @@ impl Client {
             );
             sleep(TIME_BETWEEN_REQUESTS);
         }
+        simple_status!(
+            LevelFilter::Info,
+            Module::REGISTRYCLIENT,
+            200,
+            "Completed registry queries for all crates."
+        );
         self.save_cache();
     }
 
@@ -207,10 +237,22 @@ impl Client {
     pub fn call_index(&mut self, map: &mut CrateResponses, c: &str) -> Result<(), ureq::Error> {
         match self.crates_io_index_cache.get_cache_entry(c) {
             Some(cached) => {
+                simple_status!(
+                    LevelFilter::Trace,
+                    Module::REGISTRYCLIENT,
+                    200,
+                    format!("Index for '{c}' retrieved from cache")
+                );
                 map.set_index(cached);
             }
             None => {
                 if let Some(url) = self.parse_index_url(c) {
+                    simple_status!(
+                        LevelFilter::Trace,
+                        Module::REGISTRYCLIENT,
+                        100,
+                        format!("Querying sparse index for '{c}' from {url}")
+                    );
                     let body = self
                         .call(
                             url,
@@ -244,9 +286,23 @@ impl Client {
     }
     pub fn call_api(&mut self, map: &mut CrateResponses, c: &str) -> Result<(), ureq::Error> {
         match self.crates_io_api_cache.get_cache_entry(c) {
-            Some(cached) => map.set_api(cached),
+            Some(cached) => {
+                simple_status!(
+                    LevelFilter::Trace,
+                    Module::REGISTRYCLIENT,
+                    200,
+                    format!("API metadata for '{c}' retrieved from cache")
+                );
+                map.set_api(cached);
+            }
             None => {
                 if let Some(url) = self.parse_api_url(c) {
+                    simple_status!(
+                        LevelFilter::Trace,
+                        Module::REGISTRYCLIENT,
+                        100,
+                        format!("Querying crates.io API metadata for '{c}' from {url}")
+                    );
                     let body = self
                         .call(
                             url,
@@ -280,9 +336,23 @@ impl Client {
     }
     pub fn call_audit(&mut self, map: &mut CrateResponses, c: &str) -> Result<(), ureq::Error> {
         match self.rustsec_json_cache.get_cache_entry(c) {
-            Some(cached) => map.set_audit(cached),
+            Some(cached) => {
+                simple_status!(
+                    LevelFilter::Trace,
+                    Module::REGISTRYCLIENT,
+                    200,
+                    format!("RustSec audit reports for '{c}' retrieved from cache")
+                );
+                map.set_audit(cached);
+            }
             None => {
                 if let Some(url) = self.parse_audit_url(c) {
+                    simple_status!(
+                        LevelFilter::Trace,
+                        Module::REGISTRYCLIENT,
+                        100,
+                        format!("Querying RustSec advisory report for '{c}' from {url}")
+                    );
                     let res = self.call(
                         url,
                         DEFAULT_USER_AGENT_HEADER_TYPE_AUDIT,
@@ -294,7 +364,17 @@ impl Client {
                             response.body_mut().read_json::<RustsecJsonResponse>()?
                         }
                         // We catch 404 as it means there are no reports on rustsec and is a valid response like an empty array.
-                        Err(ureq::Error::StatusCode(404)) => Vec::new(),
+                        Err(ureq::Error::StatusCode(404)) => {
+                            simple_status!(
+                                LevelFilter::Trace,
+                                Module::REGISTRYCLIENT,
+                                404,
+                                format!(
+                                    "No security advisories on rustsec.org for '{c}' (404 Not Found)"
+                                )
+                            );
+                            Vec::new()
+                        }
                         Err(err) => return Err(err),
                     };
 

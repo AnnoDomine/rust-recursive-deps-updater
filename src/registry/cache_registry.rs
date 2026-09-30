@@ -123,7 +123,10 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
                 log::LevelFilter::Debug,
                 Module::CACHE,
                 200,
-                format!("Cache entry found and valid. '{:?}'", self.cache_type)
+                format!(
+                    "Cache entry found and valid for '{key}'. '{:?}'",
+                    self.cache_type
+                )
             );
             Some(entry.response.clone())
         } else {
@@ -131,7 +134,10 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
                 log::LevelFilter::Debug,
                 Module::CACHE,
                 404,
-                format!("No cache entry found and valid. '{:?}'", self.cache_type)
+                format!(
+                    "No cache entry found or valid for '{key}'. '{:?}'",
+                    self.cache_type
+                )
             );
             None
         }
