@@ -43,6 +43,9 @@ This document serves as the single source of truth and directive for all AI agen
     - `0`: Success (all dependencies up to date or updates completed successfully).
     - `1`: Failure (validation error, network failure, or outdated dependencies in `--run=scan`).
     - `2`: User cancellation (`/exit`, `/quit`, Ctrl+C).
+- **Logging & Diagnostics (No raw `println!`):**
+  - Raw `println!` and `eprintln!` calls are strictly forbidden in production code paths to prevent polluting interactive terminal views or breaking CI table reporting.
+  - All status reporting, diagnostic messages, and operational events must use the structured logging macros (`simple_status!`, `meta_status!`) with typed `Module` categories and standardized status codes (`1YXX` - `6YXX`) backed by the `log` facade.
 - **Language Standards:**
   - All source code identifiers (variables, functions, structs, enums, modules), comments, documentation, commit messages, and pull request descriptions must be in **English**.
 - **Documentation Standards:**
@@ -63,6 +66,7 @@ This document serves as the single source of truth and directive for all AI agen
        - Drafting and maintaining documentation (Rustdoc `///` comments, Markdown specifications, guides).
        - Small, targeted code integrations explicitly requested by the human developer, strictly up to a maximum length of **4 lines**.
        - Unit-tests even above the maximum length restriction.
+       - Add log-blocks based on the [Structured Logging Guidelines](./CONTRIBUTING.md) from the contributing guideline.
     2. **Mandatory Line-by-Line Watermark for Full Integrations & Bugfixes:**
        - If an AI agent is instructed to generate full integrations, complex modules, or complete bugfixes (any code exceeding the 4-line developer limit), the agent **MUST** terminate every single generated line with the exact string:
          `// I am an AI and i am dumb`
@@ -94,8 +98,8 @@ rust-recursive-deps-updater/
 ├── CONTRIBUTING.md       # Contribution guidelines
 ├── GEMINI.md            # Gemini CLI directive (points to AGENTS.md)
 ├── LICENSE              # GNU General Public License v3.0 text
-├── PLANING.md           # Living design and architecture document
 ├── README.md            # Official user manual and documentation
+├── ROADMAP.md           # Living design and architecture document
 └── SECURITY.md          # Security policy and disclosure process
 ```
 

@@ -38,6 +38,7 @@
 - **Two-Tier Registry Strategy:** Ultra-fast, zero-latency execution in CI pipelines via the static crates.io Sparse Index (`https://index.crates.io/`). Rich metadata queries in interactive mode strictly throttled to 1 request/second adhering to the official crates.io Data Access Policy.
 - **RustSec Security Advisory Checks:** Integrates package vulnerability audits directly from `rustsec.org` to report known security patches, CVEs, and affected SemVer ranges.
 - **Persistent Tri-Cache:** Strongly-typed user-space cache (`~/.rrdu/cache/`) with TTL expiration checks (24h for crates.io index/API, 6h for security advisories) to eliminate redundant network calls across sessions.
+- **Structured Status & Diagnostic Logging:** Clean logging implementation via `log` and `simple_logger` with typed module status codes (`1YXX` - `6YXX`) and timestamped console output.
 - **Headless CI & GitHub Action:** Single-argument execution (`--run=scan` / `--run=full`) providing a clean 5-column tabular report for CI/CD gates.
 - **Integrated Self-Update:** Update `rrdu` directly to the newest release with `rrdu --self-update`.
 - **Zero-Dependency Table Reporting:** Terminal tables rendered natively without external table crates for minimal attack surface.

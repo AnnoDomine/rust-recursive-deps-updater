@@ -47,9 +47,35 @@ git checkout -b feat/your-feature-name
 - **Language:** All source code, comments, documentation, commit messages, and pull request descriptions must be in English.
 - **Safety:** `#![forbid(unsafe_code)]` is strictly enforced. Never introduce `unsafe` code.
 - **Error Handling:** Avoid `unwrap()` and `expect()` in production code. Use typed errors defined with `thiserror`.
+- **Logging & Diagnostics (No raw `println!`):** Raw `println!` or `eprintln!` calls are strictly forbidden in production code to avoid corrupting interactive terminal views or polluting machine-readable CI table output.
 - **Formatting:** Run `cargo fmt` before submitting changes.
 - **Linter:** Ensure `cargo clippy --all-targets -- -D warnings` completes without warnings.
 - **Documentation:** All public types, functions, and modules must include descriptive Rustdoc `///` comments.
+
+### Structured Logging Guidelines
+
+All runtime feedback, progress indicators, and diagnostics must use the structured status code system defined in `src/status_codes.rs`:
+
+```rust
+// Simple status message:
+simple_status!(
+    log::LevelFilter::Debug,
+    Module::REGISTRYCLIENT,
+    200,
+    format!("Fetched metadata for '{crate_name}'")
+);
+
+// Status message with attached metadata (e.g. error payload):
+meta_status!(
+    log::LevelFilter::Error,
+    Module::CONFIGURATION,
+    500,
+    "Failed to parse configuration file",
+    err
+);
+```
+
+Available modules (`Module::CONFIGURATION`, `Module::WORKSPACE`, `Module::REGISTRYCLIENT`, `Module::CACHE`, `Module::UPDATER`, `Module::CLI`) and hierarchical status code ranges (`1YXX` - `6YXX`) ensure clean and uniform logging across all crates and execution modes.
 
 ---
 
