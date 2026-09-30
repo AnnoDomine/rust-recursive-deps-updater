@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     env,
-    fmt::Display,
+    fmt::{Debug, Display},
     fs::{self, File},
     io::BufReader,
     path::PathBuf,
@@ -10,16 +10,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    constants::*,
-    enums::*,
-    registry::{
-        crates_index_response_structs::CratesIndexResponseParsed,
-        crates_io_response_structs::CratesIOResponse,
-        rust_sec_json_response_structs::RustsecJsonResponse,
-    },
-    status_codes::{Module, StatusCodeSchema},
-};
+use crate::{constants::*, enums::*, meta_status, simple_status, status_codes::Module};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CacheRegistry<T> {
@@ -37,63 +28,21 @@ impl Display for CacheType {
     }
 }
 
+#[allow(clippy::result_unit_err)]
 impl CacheType {
-    pub fn get_cache_type(name: &str) -> Result<CacheType, StatusCodeSchema> {
+    pub fn get_cache_type(name: &str) -> Result<CacheType, ()> {
         match name {
             RRDU_REGISTRY_CACHE_CRATES_IO_API => Ok(CacheType::CratesIOApi),
             RRDU_REGISTRY_CACHE_CRATES_IO_INDEX => Ok(CacheType::CratesIOIndex),
             RRDU_REGISTRY_CACHE_RUSTSEC_API_IDS => Ok(CacheType::RustsecJsonResponse),
-            _ => Err(StatusCodeSchema::simple(
-                Module::CACHE,
-                404,
-                format!("Cache '{:}' unknown.", name),
-            )),
-        }
-    }
-
-    pub fn get_reponse_deserialised(
-        &self,
-        path: &PathBuf,
-    ) -> Result<CacheResponse, StatusCodeSchema<std::io::Error>> {
-        {
-            let file = match File::open(path) {
-                Ok(f) => f,
-                Err(read_err) => {
-                    return Err(StatusCodeSchema::with_meta(
-                        Module::CACHE,
-                        500,
-                        format!("Unexpected error while reading file '{:}'.", self),
-                        read_err,
-                    ));
-                }
-            };
-            let reader = BufReader::new(file);
-
-            let map_serde_err = |err: serde_json::Error| {
-                StatusCodeSchema::with_meta(
+            _ => {
+                simple_status!(
+                    log::LevelFilter::Error,
                     Module::CACHE,
-                    500,
-                    format!("Unexpected error while reading file content '{:}'.", self),
-                    std::io::Error::new(std::io::ErrorKind::InvalidData, err),
-                )
-            };
-
-            match self {
-                CacheType::CratesIOIndex => {
-                    let map: HashMap<String, CacheEntry<CratesIndexResponseParsed>> =
-                        serde_json::from_reader(reader).map_err(map_serde_err)?;
-                    Ok(CacheResponse::CratesIOIndexResponse(map))
-                }
-                CacheType::CratesIOApi => {
-                    let map: HashMap<String, CacheEntry<Box<CratesIOResponse>>> =
-                        serde_json::from_reader(reader).map_err(map_serde_err)?;
-                    Ok(CacheResponse::CratesIOAPIResponse(map))
-                }
-                CacheType::RustsecJsonResponse => {
-                    let map: HashMap<String, CacheEntry<RustsecJsonResponse>> =
-                        serde_json::from_reader(reader).map_err(map_serde_err)?;
-                    Ok(CacheResponse::RustSecJsonResponse(map))
-                }
+                    404,
+                    format!("Cache '{:}' unknown.", name)
+                );
+                Err(())
             }
         }
     }
@@ -107,7 +56,14 @@ impl CacheType {
     }
 }
 
-impl<T: Clone + Serialize + for<'de> Deserialize<'de>> CacheRegistry<T> {
+impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> Display for CacheRegistry<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#?}", self.fmt_cache())
+    }
+}
+
+#[allow(clippy::result_unit_err)]
+impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> {
     pub fn new(cache_type: CacheType) -> Self {
         let mut cache_registry = Self {
             cache: HashMap::new(),
@@ -117,8 +73,25 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de>> CacheRegistry<T> {
         cache_registry
     }
 
+    pub fn fmt_cache(&self) -> Vec<String> {
+        let cache = self.cache.clone();
+        let mut map: Vec<String> = Vec::new();
+        for (ca_k, ca_v) in cache {
+            map.push(format!("{:} [{:?}]:", ca_k, ca_v.timestamp));
+            map.push(format!("{:#?}", ca_v.response));
+            map.push("".to_string())
+        }
+        map
+    }
+
     pub fn add_cache_entry(&mut self, key: &str, entry: T) {
         let timestamp = SystemTime::now();
+        simple_status!(
+            log::LevelFilter::Debug,
+            Module::CACHE,
+            200,
+            format!("{:} cached. '{:?}'", key, self.cache_type)
+        );
         self.cache.insert(
             key.to_string(),
             CacheEntry {
@@ -131,130 +104,174 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de>> CacheRegistry<T> {
     pub fn use_cache(timestamp: SystemTime, ttl: Duration) -> bool {
         let now = SystemTime::now();
         if let Ok(diff) = now.duration_since(timestamp) {
+            simple_status!(
+                log::LevelFilter::Debug,
+                Module::CACHE,
+                200,
+                format!("Use cached entry. {:?}", ttl > diff)
+            );
             return ttl > diff;
         }
         false
     }
 
     pub fn get_cache_entry(&self, key: &str) -> Option<T> {
-        let entry = self.cache.get(key)?;
-        if Self::use_cache(entry.timestamp, self.cache_type.get_ttl()) {
+        if let Some(entry) = self.cache.get(key)
+            && Self::use_cache(entry.timestamp, self.cache_type.get_ttl())
+        {
+            simple_status!(
+                log::LevelFilter::Debug,
+                Module::CACHE,
+                200,
+                format!("Cache entry found and valid. '{:?}'", self.cache_type)
+            );
             Some(entry.response.clone())
         } else {
+            simple_status!(
+                log::LevelFilter::Debug,
+                Module::CACHE,
+                404,
+                format!("No cache entry found and valid. '{:?}'", self.cache_type)
+            );
             None
         }
     }
 
-    pub fn get_cache_path(&self) -> Result<PathBuf, StatusCodeSchema<std::io::Error>> {
+    pub fn get_cache_path(&self) -> Result<PathBuf, ()> {
         let mut cache_path = match env::home_dir() {
             Some(h) => h,
             None => {
-                return Err(StatusCodeSchema::simple(
+                simple_status!(
+                    log::LevelFilter::Error,
                     Module::CACHE,
                     404,
-                    "Could not retreive the home folder.".to_string(),
-                ));
+                    "Could not retreive the home folder.".to_string()
+                );
+                return Err(());
             }
         };
         cache_path.push(".rrdu");
         cache_path.push("cache");
-        if let Err(err) = fs::exists(&cache_path) {
-            println!(
-                "{:}",
-                StatusCodeSchema::with_meta(
-                    Module::CACHE,
-                    404,
-                    format!(
-                        "Could not find cache folder or cache file '{:}'. Creating one.",
-                        self.cache_type
-                    ),
-                    err
+        if let Ok(false) = fs::exists(&cache_path) {
+            simple_status!(
+                log::LevelFilter::Error,
+                Module::CACHE,
+                404,
+                format!(
+                    "Could not find cache folder or cache file '{:}'. Creating one.",
+                    self.cache_type
                 )
             );
             if let Err(create_err) = fs::create_dir_all(&cache_path) {
-                return Err(StatusCodeSchema::with_meta(
+                meta_status!(
+                    log::LevelFilter::Error,
                     Module::CACHE,
                     500,
                     format!(
                         "Unexpected error while creating cache file '{:}'.",
                         self.cache_type
                     ),
-                    create_err,
-                ));
+                    create_err
+                );
+                return Err(());
             }
         };
+        cache_path.push(self.cache_type.to_string());
         Ok(cache_path)
     }
 
-    pub fn save_cache(
-        self,
-        file: Option<&PathBuf>,
-    ) -> Result<(), StatusCodeSchema<std::io::Error>> {
+    pub fn save_cache(&self, file: Option<&PathBuf>) {
         let cache_file = match file {
             Some(p) => p.clone(),
-            None => self.get_cache_path()?,
+            None => match self.get_cache_path() {
+                Ok(p) => p,
+                _ => {
+                    return;
+                }
+            },
         };
-        match File::create(cache_file) {
+        match File::create(&cache_file) {
             Ok(buf) => {
                 if let Err(save_err) = serde_json::to_writer(buf, &self.cache) {
-                    return Err(StatusCodeSchema::with_meta(
+                    meta_status!(
+                        log::LevelFilter::Error,
                         Module::CACHE,
                         400,
-                        format!("Error while write cache file {:}", self.cache_type),
-                        save_err.into(),
-                    ));
-                };
-                Ok(())
+                        format!("Error while write cache file. '{:}'", self.cache_type),
+                        save_err
+                    );
+                } else {
+                    simple_status!(
+                        log::LevelFilter::Info,
+                        Module::CACHE,
+                        200,
+                        format!("Cache saved. '{:?}'", self.cache_type)
+                    );
+                }
             }
-            Err(create_err) => Err(StatusCodeSchema::with_meta(
-                Module::CACHE,
-                500,
-                format!("Error while create cache file {:}", self.cache_type),
-                create_err,
-            )),
-        }
+            Err(create_err) => {
+                meta_status!(
+                    log::LevelFilter::Error,
+                    Module::CACHE,
+                    500,
+                    format!("Error while create cache file. '{:}'", self.cache_type),
+                    create_err
+                );
+            }
+        };
     }
 
     /// Returns the cache for rrdu (<user-home-folder>/.rrdu/cache/)
-    pub fn load_cache(&mut self) -> Result<(), StatusCodeSchema<std::io::Error>> {
-        let mut file_path = self.get_cache_path()?;
-        file_path.push(self.cache_type.to_string());
+    pub fn load_cache(&mut self) -> Result<(), ()> {
+        let file_path = self.get_cache_path()?;
 
         if !file_path.exists() {
-            self.clone().save_cache(Some(&file_path))?;
+            self.clone().save_cache(Some(&file_path));
             return Ok(());
         }
 
         let loaded = self.get_reponse_deserialised(&file_path)?;
         self.cache = loaded;
+        simple_status!(
+            log::LevelFilter::Info,
+            Module::CACHE,
+            200,
+            format!("Cache loaded. '{:}'", self.cache_type)
+        );
         Ok(())
     }
 
     pub fn get_reponse_deserialised(
         &self,
         path: &PathBuf,
-    ) -> Result<HashMap<String, CacheEntry<T>>, StatusCodeSchema<std::io::Error>> {
+    ) -> Result<HashMap<String, CacheEntry<T>>, ()> {
         let file = match File::open(path) {
             Ok(f) => f,
             Err(read_err) => {
-                return Err(StatusCodeSchema::with_meta(
+                meta_status!(
+                    log::LevelFilter::Error,
                     Module::CACHE,
                     500,
-                    format!("Unexpected error while reading file '{:?}'.", path),
-                    read_err,
-                ));
+                    "Unexpected error while reading file.",
+                    read_err
+                );
+                return Err(());
             }
         };
         let reader = BufReader::new(file);
 
         match serde_json::from_reader::<_, HashMap<String, CacheEntry<T>>>(reader) {
             Ok(map) => Ok(map),
-            Err(err) => Err(StatusCodeSchema::with_meta(
-                Module::CACHE,
-                500,
-                format!("Unexpected error while reading file content '{:?}'.", path),
-                std::io::Error::new(std::io::ErrorKind::InvalidData, err),
-            )),
+            Err(err) => {
+                meta_status!(
+                    log::LevelFilter::Error,
+                    Module::CACHE,
+                    500,
+                    "Unexpected error while reading file content.",
+                    err
+                );
+                Err(())
+            }
         }
     }
 }
