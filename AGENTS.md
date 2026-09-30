@@ -108,4 +108,4 @@ rust-recursive-deps-updater/
 ## 5. Testing & Verification
 - Unit tests live next to the code in `src/` inside `#[cfg(test)] mod tests`.
 - Integration tests live in `tests/` and use `tempfile` to verify manifest editing, comment preservation, and full end-to-end workflows.
-- Always run `cargo test`, `cargo fmt --check`, and `cargo clippy --all-targets -- -D warnings` before declaring any task complete.
+- Always run `cargo test`, `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, and `RUSTDOCFLAGS="-D warnings -D missing_docs" cargo doc --no-deps` before declaring any task complete.
