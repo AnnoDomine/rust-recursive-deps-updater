@@ -1,3 +1,8 @@
+//! Workspace configuration loading, generation, and validation.
+//!
+//! Provides [`RrduConfig`] representing the root `.rrduconfig` YAML file,
+//! functions to check version compatibility, and methods for loading from or saving to disk.
+
 use std::path::{Path, PathBuf};
 
 use noyalib::{ParserConfig, SerializerConfig};
@@ -8,12 +13,13 @@ use crate::{
     status_codes::Module, workspace::discovery::Discovery,
 };
 
+/// Root configuration representation corresponding to `.rrduconfig`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RrduConfig {
-    /// List of workspaces based on the `.rrduconfig` fodler
+    /// List of workspace projects discovered or defined in `.rrduconfig`.
     #[serde(default = "default_root_project")]
     pub workspace: Vec<ProjectConfig>,
-    /// Updater configuration
+    /// Global updater configuration settings.
     #[serde(default)]
     pub updater: UpdaterConfig,
 }
@@ -31,6 +37,13 @@ impl Default for RrduConfig {
     }
 }
 
+/// Evaluates compatibility between the loaded configuration schema version and the running binary.
+///
+/// # Arguments
+/// * `config` - The loaded configuration to check.
+///
+/// # Returns
+/// A [`ConfigCompatibility`] variant indicating compatibility status.
 pub fn check_config_compatibility(config: &RrduConfig) -> ConfigCompatibility {
     let Some(raw_version) = &config.updater.version else {
         return ConfigCompatibility::LegacyMissingVersion;
@@ -54,6 +67,7 @@ pub fn check_config_compatibility(config: &RrduConfig) -> ConfigCompatibility {
 }
 
 impl RrduConfig {
+    /// Loads an existing configuration from the current working directory, or initializes a new in-memory config.
     pub fn new() -> Self {
         // Check if a config is already generated.
         // If no config could be loaded, return the initialised config without save it.
@@ -63,12 +77,14 @@ impl RrduConfig {
         }
     }
 
+    /// Initializes a default configuration and executes workspace discovery without persisting to disk.
     pub fn init() -> Self {
         let mut initial_default: Self = Self::default();
         initial_default.discover_workspace(None, None);
         initial_default
     }
 
+    /// Discovers projects across the workspace and saves a new `.rrduconfig` to disk.
     pub fn create_config() -> Self {
         let new_config = Self::init();
         let _ = new_config.save_config();
@@ -138,7 +154,19 @@ impl RrduConfig {
         Ok(())
     }
 
-    /// Loads and parses an `.rrduconfig` from a specific file path (relative or absolute).
+    /// Loads and parses an `.rrduconfig` from a specific file or directory path.
+    ///
+    /// # Arguments
+    /// * `path` - Path pointing to `.rrduconfig` or a folder containing it.
+    ///
+    /// # Returns
+    /// Validated [`RrduConfig`] instance.
+    ///
+    /// # Errors
+    /// Returns [`ConfigError::InsecurePath`] if path traversal is detected.
+    /// Returns [`ConfigError::Io`] if file access fails.
+    /// Returns [`ConfigError::Yaml`] if YAML deserialization fails.
+    /// Returns [`ConfigError::IncompatibleVersion`] or [`ConfigError::LegacyConfiguration`] if version checks fail.
     pub fn load_from_path<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
         let config_path = match create_absolute_path(path.as_ref(), Some(RRDUCONFIG_FILE_NAME)) {
             Ok(f) => f,

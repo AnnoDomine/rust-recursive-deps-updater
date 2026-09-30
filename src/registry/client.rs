@@ -1,3 +1,8 @@
+//! HTTP client for crates.io registry and RustSec advisory endpoints.
+//!
+//! Handles HTTPS requests to the crates.io sparse index, crates.io web API,
+//! and RustSec advisories with rate limiting, user-agent generation, and cache integration.
+
 use std::{collections::HashMap, thread::sleep};
 
 use log::LevelFilter;
@@ -21,18 +26,27 @@ use crate::{
     status_codes::Module,
 };
 
+/// Lightweight summary record of a crates.io crate version.
 pub struct CratesIOResponseItem {
+    /// Name of the crate.
     pub name: String,
+    /// Latest version string.
     pub version: String,
+    /// Unique identifier.
     pub id: String,
 }
 
+/// Registry HTTP client managing connection pools, query execution, rate limits, and caches.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Client {
+    /// Map tracking query state for each target crate.
     #[serde(default)]
     pub crates: HashMap<String, RegistryClientState>,
+    /// Cache registry for sparse index responses.
     pub crates_io_index_cache: CacheRegistry<CratesIndexResponseParsed>,
+    /// Cache registry for web API metadata responses.
     pub crates_io_api_cache: CacheRegistry<Box<CratesIOResponse>>,
+    /// Cache registry for RustSec advisory responses.
     pub rustsec_json_cache: CacheRegistry<RustsecJsonResponse>,
 }
 
@@ -43,6 +57,7 @@ impl Default for CrateResponses {
 }
 
 impl CrateResponses {
+    /// Creates a new empty response aggregate.
     pub fn new() -> Self {
         Self {
             index: None,
@@ -51,14 +66,26 @@ impl CrateResponses {
         }
     }
 
+    /// Sets the parsed sparse index response.
+    ///
+    /// # Arguments
+    /// * `value` - Parsed index response.
     pub fn set_index(&mut self, value: CratesIndexResponseParsed) {
         self.index = Some(value);
     }
 
+    /// Sets the crates.io API metadata response.
+    ///
+    /// # Arguments
+    /// * `value` - Boxed API response.
     pub fn set_api(&mut self, value: Box<CratesIOResponse>) {
         self.api = Some(value);
     }
 
+    /// Sets the RustSec advisory response.
+    ///
+    /// # Arguments
+    /// * `value` - RustSec JSON advisory response.
     pub fn set_audit(&mut self, value: super::rust_sec_json_response_structs::RustsecJsonResponse) {
         self.audit = Some(value);
     }
@@ -71,6 +98,7 @@ impl Default for Client {
 }
 
 impl Client {
+    /// Creates a new registry client instance with initialized disk caches.
     pub fn new() -> Self {
         Self {
             crates: HashMap::new(),
@@ -80,6 +108,10 @@ impl Client {
         }
     }
 
+    /// Populates client state with collected workspace dependencies.
+    ///
+    /// # Arguments
+    /// * `crates` - Map of crate names and their current collection status.
     pub fn map_crates(&mut self, crates: HashMap<String, DependencyCollectionVersion>) {
         for (dep, status) in crates {
             if let DependencyCollectionVersion::None = status {
@@ -89,12 +121,14 @@ impl Client {
         }
     }
 
+    /// Persists all in-memory cache registries to disk.
     pub fn save_cache(&self) {
         self.crates_io_index_cache.clone().save_cache(None);
         self.crates_io_api_cache.clone().save_cache(None);
         self.rustsec_json_cache.clone().save_cache(None);
     }
 
+    /// Executes registry queries sequentially for all uninitialized crates, respecting rate limits.
     pub fn start_calls(&mut self) {
         let uninitialised: Vec<String> = self
             .crates
@@ -169,14 +203,27 @@ impl Client {
         self.save_cache();
     }
 
+    /// Updates the query state for a specific crate.
+    ///
+    /// # Arguments
+    /// * `c` - Crate name.
+    /// * `new_state` - New state to assign.
     pub fn set_crate_state(&mut self, c: String, new_state: RegistryClientState) {
         self.crates.insert(c, new_state);
     }
 
+    /// Retrieves a mutable reference to a crate's query state.
+    ///
+    /// # Arguments
+    /// * `c` - Crate name.
     pub fn get_mut_crate(&mut self, c: &str) -> Option<&mut RegistryClientState> {
         self.crates.get_mut(c)
     }
 
+    /// Formats a policy-compliant User-Agent header value.
+    ///
+    /// # Arguments
+    /// * `reason` - Descriptive purpose tag for this query.
     pub fn create_user_agent_value(&self, reason: &str) -> String {
         format!(
             "{:}{:}{:} (crates.io: {:} - GitHub: {:})",
@@ -192,6 +239,18 @@ impl Client {
         url.push("/".to_string());
     }
 
+    /// Dispatches an HTTPS GET request with User-Agent and Accept headers.
+    ///
+    /// # Arguments
+    /// * `url` - Target endpoint URI.
+    /// * `reason` - Operation identifier for User-Agent header.
+    /// * `accept` - Expected MIME type for the Accept header.
+    ///
+    /// # Returns
+    /// The HTTP [`Response`] from `ureq`.
+    ///
+    /// # Errors
+    /// Returns [`ureq::Error`] on network or HTTP protocol failure.
     pub fn call(
         &self,
         url: Uri,
@@ -204,12 +263,19 @@ impl Client {
             .call()
     }
 
-    /// URL:
-    /// - 0 chars -> Invalid (Return None)
-    /// - 1 char -> https://index.crates.io/1/f
-    /// - 2 chars -> https://index.crates.io/2/fo
-    /// - 3 chars -> https://index.crates.io/3/foo
-    /// - 4+ chars -> https://index.crates.io/fo/ob/foobar
+    /// Constructs the sparse index URL for a crate name according to crates.io prefixing rules.
+    ///
+    /// - 0 chars -> Invalid (returns `None`)
+    /// - 1 char -> <https://index.crates.io/1/f>
+    /// - 2 chars -> <https://index.crates.io/2/fo>
+    /// - 3 chars -> <https://index.crates.io/3/foo>
+    /// - 4+ chars -> <https://index.crates.io/fo/ob/foobar>
+    ///
+    /// # Arguments
+    /// * `c` - Crate name.
+    ///
+    /// # Returns
+    /// Parsed [`Uri`], or `None` if invalid.
     pub fn parse_index_url(&self, c: &str) -> Option<Uri> {
         let mut url_path: Vec<String> = Vec::new();
         url_path.push(CRATE_IO_INDEX_URL.to_string());
@@ -234,6 +300,15 @@ impl Client {
         url_path.push(c.to_string());
         url_path.join("").parse::<Uri>().ok()
     }
+
+    /// Queries or loads from cache the sparse index for the specified crate.
+    ///
+    /// # Arguments
+    /// * `map` - Target aggregate response container.
+    /// * `c` - Crate name.
+    ///
+    /// # Errors
+    /// Returns [`ureq::Error`] if network fetch fails.
     pub fn call_index(&mut self, map: &mut CrateResponses, c: &str) -> Result<(), ureq::Error> {
         match self.crates_io_index_cache.get_cache_entry(c) {
             Some(cached) => {
@@ -276,6 +351,13 @@ impl Client {
         Ok(())
     }
 
+    /// Constructs the crates.io REST API URL for a crate.
+    ///
+    /// # Arguments
+    /// * `c` - Crate name.
+    ///
+    /// # Returns
+    /// Parsed [`Uri`], or `None` if formatting fails.
     pub fn parse_api_url(&self, c: &str) -> Option<Uri> {
         let mut url_path: Vec<String> = Vec::new();
         url_path.push(CRATE_IO_API_URL.to_string());
@@ -284,6 +366,15 @@ impl Client {
         url_path.push("?keywords=full".to_string());
         url_path.join("").parse::<Uri>().ok()
     }
+
+    /// Queries or loads from cache the crates.io REST API metadata for the specified crate.
+    ///
+    /// # Arguments
+    /// * `map` - Target aggregate response container.
+    /// * `c` - Crate name.
+    ///
+    /// # Errors
+    /// Returns [`ureq::Error`] if network fetch fails.
     pub fn call_api(&mut self, map: &mut CrateResponses, c: &str) -> Result<(), ureq::Error> {
         match self.crates_io_api_cache.get_cache_entry(c) {
             Some(cached) => {
@@ -325,6 +416,13 @@ impl Client {
         Ok(())
     }
 
+    /// Constructs the RustSec vulnerability database URL for a crate.
+    ///
+    /// # Arguments
+    /// * `c` - Crate name.
+    ///
+    /// # Returns
+    /// Parsed [`Uri`], or `None` if formatting fails.
     pub fn parse_audit_url(&self, c: &str) -> Option<Uri> {
         let mut url_path: Vec<String> = Vec::new();
         url_path.push(RUSTSEC_API_URL.to_string());
@@ -334,6 +432,15 @@ impl Client {
         url_path.push(".json".to_string());
         url_path.join("").parse::<Uri>().ok()
     }
+
+    /// Queries or loads from cache the RustSec vulnerability reports for the specified crate.
+    ///
+    /// # Arguments
+    /// * `map` - Target aggregate response container.
+    /// * `c` - Crate name.
+    ///
+    /// # Errors
+    /// Returns [`ureq::Error`] on non-404 network failure.
     pub fn call_audit(&mut self, map: &mut CrateResponses, c: &str) -> Result<(), ureq::Error> {
         match self.rustsec_json_cache.get_cache_entry(c) {
             Some(cached) => {

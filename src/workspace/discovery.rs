@@ -31,17 +31,35 @@ use crate::{
     status_codes::Module, workspace::project::Projects,
 };
 
+/// Discovers Cargo workspaces, nested crates, and configuration files across directory hierarchies.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Discovery {
+    /// Accumulated ignore paths from `.gitignore` and `.rrduignore`.
     pub ignore: Vec<PathBuf>,
+    /// Whether `Cargo.toml` exists in the current folder.
     pub has_toml: bool,
+    /// The current directory being inspected.
     pub current_folder: PathBuf,
+    /// Subdirectories scheduled for subsequent traversal depth.
     pub next_depth: Vec<PathBuf>,
+    /// Directory entries discovered in the current folder.
     pub dir_entries: Vec<PathBuf>,
+    /// Discovered project configuration if `Cargo.toml` was found.
     pub found_project: Option<ProjectConfig>,
 }
 
 impl Discovery {
+    /// Creates and executes a discovery scan in the specified folder.
+    ///
+    /// # Arguments
+    /// * `current` - Directory path to scan.
+    /// * `ignored_before` - Inherited ignore paths from parent directories.
+    ///
+    /// # Returns
+    /// An initialized [`Discovery`] result containing detected projects and subdirectories.
+    ///
+    /// # Errors
+    /// Returns [`FileError`] if reading directory entries fails.
     pub fn new(current: PathBuf, ignored_before: Vec<PathBuf>) -> Result<Self, FileError> {
         simple_status!(
             log::LevelFilter::Debug,

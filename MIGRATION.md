@@ -4,6 +4,15 @@ As the project may introduce breaking changes during early development, this doc
 
 ---
 
+## Version 0.0.3 to 0.0.4
+
+### Changes in `.rrduconfig`
+
+1. **Change value of `updater.auto-update`**
+   For better readability we changed the possible values of the `updater.auto-update` to `none`, `semver-safe` and `full`. As this key currently is not used, it is not breaking the application.
+
+---
+
 ## Version 0.0.1/0.0.2 to 0.0.3
 
 ### Changes in `.rrduconfig`
