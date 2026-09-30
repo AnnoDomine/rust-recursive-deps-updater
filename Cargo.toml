@@ -1,13 +1,14 @@
 [package]
 name = "rust-recursive-deps-updater"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2024"
 rust-version = "1.98.1"
 authors = ["Dominic Seel"]
 description = "A fast, safe, zero-privilege recursive Cargo dependency updater for Rust workspaces and standalone crates."
 license = "GPL-3.0-or-later"
 repository = "https://github.com/AnnoDomine/rust-recursive-deps-updater"
-homepage = "https://github.com/AnnoDomine/rust-recursive-deps-updater"
+homepage = "https://github.com/AnnoDomine/rust-recursive-deps-updater/releases"
+documentation = "https://docs.rs/crate/rust-recursive-deps-updater"
 readme = "README.md"
 keywords = ["cargo", "dependencies", "updater", "workspace", "semver"]
 categories = ["development-tools::cargo-plugins", "command-line-utilities"]
