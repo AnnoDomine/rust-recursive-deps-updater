@@ -8,7 +8,9 @@ use crate::{
     enums::*,
     errors::*,
     functions::*,
+    meta_status,
     registry::client::Client,
+    status_codes::Module,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -426,7 +428,15 @@ impl Projects {
             ProjectDEPENDENCY::Map(_) => {
                 match self.get_toml_content() {
                     Ok(toml) => self.collect_sections(toml),
-                    Err(e) => println!("{:}", e),
+                    Err(e) => {
+                        meta_status!(
+                            log::LevelFilter::Error,
+                            Module::WORKSPACE,
+                            400,
+                            "Error while parsing index item.".to_string(),
+                            e
+                        )
+                    }
                 };
             }
         }
@@ -627,7 +637,6 @@ impl Workspace {
             }
             _ => {
                 let mut p = Projects::new(project, Boolean::False);
-                println!("{:#?}", p);
                 p.parse_project();
                 p.list_all_deps(&mut self.collected_deps);
                 self.projects.push(p);
@@ -640,7 +649,7 @@ impl Workspace {
     pub fn fetch_latest_versions(&mut self) {
         let mut client = Client::new();
         client.map_crates(self.collected_deps.clone());
-        let _ = client.start_calls();
+        client.start_calls();
         self.client = Some(client);
     }
 }

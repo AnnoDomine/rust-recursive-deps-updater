@@ -4,8 +4,8 @@ use noyalib::{ParserConfig, SerializerConfig};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    config::model::*, constants::*, enums::*, errors::*, functions::*,
-    workspace::discovery::Discovery,
+    config::model::*, constants::*, enums::*, errors::*, functions::*, meta_status, simple_status,
+    status_codes::Module, workspace::discovery::Discovery,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -59,10 +59,7 @@ impl RrduConfig {
         // If no config could be loaded, return the initialised config without save it.
         match Self::load_config() {
             Ok(c) => c,
-            Err(e) => {
-                println!("{:}", e);
-                Self::init()
-            }
+            Err(_) => Self::init(),
         }
     }
 
@@ -74,10 +71,7 @@ impl RrduConfig {
 
     pub fn create_config() -> Self {
         let new_config = Self::init();
-        let res = new_config.save_config();
-        if res.is_err() {
-            println!("Error: {:?}", res);
-        }
+        let _ = new_config.save_config();
         new_config
     }
 
@@ -89,9 +83,13 @@ impl RrduConfig {
         let discover_path = path.unwrap_or_else(|| PathBuf::from(""));
         let last_ignored = ignore_before.unwrap_or_default();
         // Discover the workspace for Cargo.toml files
-        println!("Start discover path: {:#?}", discover_path);
+        simple_status!(
+            log::LevelFilter::Info,
+            Module::CONFIGURATION,
+            100,
+            format!("Start discover path: {:#?}", discover_path)
+        );
         let discovery = Discovery::new(discover_path.clone(), last_ignored);
-        println!("{:#?}", discovery);
         match discovery {
             Ok(disc) => {
                 if let Some(p) = disc.found_project {
@@ -102,7 +100,13 @@ impl RrduConfig {
                     self.discover_workspace(Some(n), Some(disc.ignore.clone()));
                 }
             }
-            Err(e) => println!("Error while discover '{:#?}': {:#?}", discover_path, e),
+            Err(e) => meta_status!(
+                log::LevelFilter::Error,
+                Module::CONFIGURATION,
+                500,
+                format!("Error while discover '{:#?}'", discover_path),
+                e
+            ),
         };
     }
 
@@ -114,9 +118,6 @@ impl RrduConfig {
             Err(_) => return Err(ConfigError::InsecurePath(Path::new("").to_path_buf())),
         };
         if config_path.exists() {
-            println!(
-                "Config file already exists. To create a new one, delete it and run 'rrdu --init'."
-            );
             return Ok(());
         }
         let file = std::fs::File::create(config_path)?;
