@@ -56,7 +56,7 @@ updater:
 
 ### `updater`
 - `exclude`: Directory names ignored during recursive filesystem traversal.
-- `auto-update`: Automated update strategy in `--run=full` mode (`none`, `semver-safe`, or `full`).
+- `auto-update`: Pre-selection strategy for interactive updates (`none`, `semver-safe`, or `full`).
 - `auto-scan`: Automatic scan on interactive CLI startup (`true`, `false`, or list of project names).
 - `max-lines`: Number of dependency rows per page during interactive CLI navigation.
 - `version`: Version of the schema for backward compatibility checks.

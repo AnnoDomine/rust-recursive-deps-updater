@@ -38,7 +38,7 @@ This document outlines the milestones, current progress, and upcoming engineerin
 - [x] Integration of `comfy-table-inline` (custom `comfy-table` edition with inline table support and `force_no_tty` safety).
 - [ ] Dual-mode logging (file-based `./rrdu.log` for interactive CLI, stderr for CI).
 - [ ] Interactive pagination, spinners, and navigation (`/next`, `/prev`, `/back`, `/exit`).
-- [ ] Headless CI check (`rrdu --run=scan`) and unattended upgrades (`rrdu --run=full`).
+- [x] Headless CI check (`rrdu --headless`) with hierarchical audit tables.
 - [ ] Privacy-sanitized diagnostics report (`rrdu --report`).
 
 ### Phase 5: Comment-Preserving Manifest Updater (`updater`)

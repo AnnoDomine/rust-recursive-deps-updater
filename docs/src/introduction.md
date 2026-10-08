@@ -16,7 +16,7 @@
 
 ## Architectural Highlights
 
-- **Dual-Mode Execution:** Interactive terminal interface with pagination, visual spinners, and keyboard navigation, as well as headless CI execution (`--run=scan`, `--run=full`).
+- **Dual-Mode Execution:** Interactive terminal interface with pagination, visual spinners, and keyboard navigation, as well as headless CI execution (`--headless`). All dependency updates require interactive validation by the user.
 - **Two-Tier Registry Strategy:** Fast static queries via the crates.io Sparse Index for CI gates, paired with rich metadata queries strictly throttled to 1 request per second in interactive mode adhering to the crates.io Data Access Policy.
 - **Tri-Cache Layer:** Persistent disk cache in `~/.rrdu/cache/` (Index, Web API, and RustSec advisories) with TTL expiration checks.
 - **Terminal Safety:** Uses `comfy-table-inline` (a custom release of `comfy-table` with inline table support) configured with `Table::force_no_tty` to eliminate unsafe `ioctl` terminal calls.

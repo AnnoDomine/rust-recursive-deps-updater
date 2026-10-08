@@ -11,7 +11,7 @@ This document serves as the single source of truth and directive for all AI agen
 - Check dependencies exclusively against `crates.io` (ignoring git and path dependencies).
 - Accurately categorize version differences according to Cargo SemVer rules (`[No migration needed]` vs. `[Need manual migration]`).
 - Preserve 100% of formatting, indentation, and comments in `Cargo.toml` files using `toml_edit`.
-- Provide an interactive terminal interface (with pagination, `/next`, `/prev`, arrow keys, `/back`, `/exit`), as well as headless CI execution (`rrdu --run=scan`, `rrdu --run=full`).
+- Provide an interactive terminal interface (with pagination, `/next`, `/prev`, arrow keys, `/back`, `/exit`), as well as headless CI execution (`rrdu --headless`). All manifest updates must be explicitly validated and confirmed by the user in interactive mode.
 
 ---
 
@@ -42,7 +42,7 @@ This document serves as the single source of truth and directive for all AI agen
   - Domain-specific error hierarchies using `thiserror` (`ConfigError`, `WorkspaceError`, `RegistryError`, `UpdateError`).
   - Standardized process exit codes:
     - `0`: Success (all dependencies up to date or updates completed successfully).
-    - `1`: Failure (validation error, network failure, or outdated dependencies in `--run=scan`).
+    - `1`: Failure (validation error, network failure, or outdated dependencies in `--headless`).
     - `2`: User cancellation (`/exit`, `/quit`, Ctrl+C).
 - **Logging & Diagnostics (No raw `println!`):**
   - Raw `println!` and `eprintln!` calls are strictly forbidden in production code paths to prevent polluting interactive terminal views or breaking CI table reporting.

@@ -20,7 +20,7 @@ This document serves as the central engineering specification, architecture manu
 5. **Formatting Preservation:** Update `Cargo.toml` manifests via `toml_edit`, preserving 100% of indentation, inline tables, comments, and structure.
 6. **Dual Execution Modes:**
    - Interactive terminal UI with pagination, keyboard navigation, and selective updates.
-   - Headless CI/CD execution (`rrdu --run=scan`, `rrdu --run=full`).
+   - Headless CI/CD audit execution (`rrdu --headless`). All manifest updates require interactive user validation.
 
 ---
 
@@ -85,7 +85,7 @@ updater:
 - **Target Scope:** Strictly direct `crates.io` dependencies.
 - Git dependencies (`git = "..."`) and path dependencies (`path = "..."`) are explicitly skipped and ignored.
 - **Two-Tier Registry & Security Communication:**
-  - **Static Sparse Index (`https://index.crates.io/`):** Fast, CDN-backed NDJSON queries without rate limits. Used for crate existence verification and exclusively in headless CI modes (`--run=scan`, `--run=full`) to ensure maximum speed and minimal runner latency.
+  - **Static Sparse Index (`https://index.crates.io/`):** Fast, CDN-backed NDJSON queries without rate limits. Used for crate existence verification and in headless CI audit mode (`--headless`) to ensure maximum speed and minimal runner latency.
   - **crates.io Web API (`https://crates.io/api/v1/crates/{crate}`):** Queried in interactive and local modes to fetch rich metadata (yanked versions, authors, download statistics, categories). Outgoing calls enforce strict **1-second throttling** (`TIME_BETWEEN_REQUESTS = Duration::from_millis(1000)`) strictly adhering to the [crates.io Data Access Policy](https://crates.io/data-access).
   - **RustSec Security Advisories (`https://rustsec.org/packages/{crate}.json`):** Static CDN lookup returning complete vulnerability advisories (RUSTSEC/CVE IDs, CVSS, affected SemVer ranges, patched releases). Fetched at the end of scan workflows.
   - Uses `ureq` with `rustls` (synchronous, lightweight, memory-safe, no OpenSSL dependencies) and strict 10-second timeouts.
@@ -126,40 +126,41 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 - `*-force`: Updates all dependencies including breaking versions (`[Need manual migration]`).
 - `<crate>` / `<index>`: Updates an individual crate interactively.
 
-#### Mode B: Headless Scan (`rrdu --run=scan`)
+#### Mode B: Headless Scan (`rrdu --headless`)
 
-- Designed for CI/CD pipelines.
+- Designed for CI/CD pipelines and automated dependency audits.
 - Requires `.rrduconfig`. If missing, terminates with exit code `1` and suggests running `rrdu init`.
-- Scans all configured projects and renders a clean 5-column table:
-  `Project` | `Dependency` | `Current version` | `Latest version` | `Migration necessary` (`true` / `false` / empty)
-- Table is rendered via `comfy-table-inline` (custom edition of `comfy-table` with inline table support) in `src/cli/table.rs` using `Table::force_no_tty` by default (ensuring 100% safe Rust without unsafe `ioctl` calls) for clean 5-column tabular output with automatic wrapping and SemVer status highlights.
+- Scans all configured projects and renders a clean nested table hierarchy:
+  `Project` -> `Section` -> `Dependency | Version | Latest | Is latest | Needs Migration`
+- Table is rendered via `comfy-table-inline` in `src/cli/headless.rs` using `Table::force_no_tty` by default (ensuring 100% safe Rust without unsafe `ioctl` calls) for structured tabular output with nested `InlineTable` rows.
 - **Exit Codes:**
 - `0`: All dependencies are up to date.
 - `1`: Outdated dependencies found or execution error.
 
-#### Mode C: Headless Full Update (`rrdu --run=full`)
+#### Update Validation Requirement (Interactive Only)
 
-- Executes non-interactive updates according to `updater.auto-update` in `.rrduconfig`.
-- Applies updates to manifests and exits with code `0` on success or `1` on error.
+- Manifest modification (`Cargo.toml`) is strictly interactive; automated/unattended updates are intentionally excluded to protect repository stability.
+- Dependency scans always run at startup and all API results are cached (`CacheRegistry<T>`), avoiding redundant queries.
+- Every dependency update must be validated and confirmed by the user via interactive selection (`*`, `*-force`, or specific crate indexes).
 
-#### Mode D: Configuration Generator (`rrdu --init`)
+#### Mode C: Configuration Generator (`rrdu --init`)
 
 - Recursively scans the current directory, detects all `Cargo.toml` manifests, and generates a fully-commented `.rrduconfig` template.
 - If `.rrduconfig` already exists, prompts `Override [y/n]` to prevent accidental data loss.
 
-#### Mode E: Binary Self-Update (`rrdu --self-update`)
+#### Mode D: Binary Self-Update (`rrdu --self-update`)
 
 - Queries GitHub Releases API for the latest binary release matching the current OS architecture.
 - Replaces the running binary in user space without requiring root or administrator privileges.
 
-#### Mode F: Privacy-Sanitized Diagnostics (`rrdu --report`)
+#### Mode E: Privacy-Sanitized Diagnostics (`rrdu --report`)
 
 - Generates a sanitized diagnostic markdown summary for issue reporting:
 - System architecture, OS, Rust edition, `rrdu` version.
 - Discovered project names and dependency counts.
 - **Privacy Guarantee:** All absolute system paths, usernames, and sensitive home directory tokens are masked or stripped.
 
-#### Mode G: Reference Help (`rrdu --help`, `rrdu -h`)
+#### Mode F: Reference Help (`rrdu --help`, `rrdu -h`)
 
 - Prints comprehensive CLI command documentation and flag reference.
 
@@ -172,7 +173,7 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 ### 2.6 Dual-Mode Logging Infrastructure
 
 - **Architecture:** Pure safe Rust logger implementing the `log` facade (`debug!`, `info!`, `warn!`, `error!`) powered by `simple_logger` with `time` timestamp formatting. Diagnostic messages and status events are unified through `StatusCodeSchema<T>` and ergonomic macros (`simple_status!`, `meta_status!`).
-- **Mode 1 (Headless CI / `--run=scan` / `--run=full`):** Routes logs directly to `stderr` in the terminal for clean GitHub Actions and CI pipeline logging without polluting `stdout`.
+- **Mode 1 (Headless CI / `--headless`):** Routes logs directly to `stderr` in the terminal for clean GitHub Actions and CI pipeline logging without polluting `stdout`.
 - **Mode 2 (Interactive CLI / `--init`):** Routes logs exclusively into `./rrdu.log` in the execution folder, rewritten/truncated on every launch to keep the interactive terminal UI (spinners, paginated tables, navigation prompts) completely clean.
 
 ---
@@ -194,7 +195,7 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 - **No Panics:** Production code paths forbid `unwrap()` and `expect()`.
 - **Exit Codes:**
 - `0`: Success (up to date or update completed).
-- `1`: Failure / outdated dependencies during `--run=scan`.
+- `1`: Failure / outdated dependencies during `--headless`.
 - `2`: User cancellation (`/exit`, Ctrl+C).
 
 ### 3.3 Governance & Anti-Vibe-Coding Policy
@@ -234,7 +235,7 @@ rust-recursive-deps-updater/
 │ │ ├── mod.rs
 │ │ ├── prompt.rs # Interactive commands (*, \_-force, crate selection)
 │ │ ├── display.rs # Colored console output & progress spinners
-│ │ ├── table.rs # Zero-dependency table renderer for --run=scan
+│ │ ├── headless.rs # Formatted nested table renderer for --headless mode
 │ │ └── pagination.rs # Pagination & scroll logic (/next, /prev, arrow keys)
 │ ├── config/ # .rrduconfig data models & noyalib YAML parser
 │ │ ├── mod.rs
@@ -280,7 +281,7 @@ rust-recursive-deps-updater/
 
 | Crate                 | Version Target    | Purpose              | Rationale                                                                              |
 | --------------------- | ----------------- | -------------------- | -------------------------------------------------------------------------------------- |
-| `clap`                | `~4.5` (derive)   | CLI Argument Parsing | Industry standard for robust CLI parsing (`init`, `--run=scan`, `--run=full`)          |
+| `clap`                | `~4.5` (derive)   | CLI Argument Parsing | Industry standard for robust CLI parsing (`init`, `--headless`)                       |
 | `serde`               | `~1.0` (derive)   | Data Serialization   | Struct serialization/deserialization                                                   |
 | `serde_json`          | `~1.0`            | JSON Parser & Cache  | Parsing crates.io Sparse Index (NDJSON), Web API, RustSec advisories, and cache storage |
 | `noyalib`             | `latest`          | YAML Parser          | Pure Rust YAML 1.2 with `#![forbid(unsafe_code)]`, maintained drop-in for `serde_yaml` |
@@ -355,12 +356,11 @@ rust-recursive-deps-updater/
 - [ ] Implement dual-mode logging infrastructure (`log` facade via `simple_logger`) routing to `./rrdu.log` (CLI mode, truncated on startup) or `stderr` (CI mode), replacing raw `println!` calls.
 - [ ] Filter out yanked versions from registry responses when selecting latest versions for display and updates.
 - [ ] Implement interactive banner, status presentation, and `indicatif` spinner.
-- [ ] Implement table renderer in `src/cli/table.rs` via `comfy-table-inline` (using `Table::force_no_tty` by default for zero unsafe).
+- [x] Implement table renderer in `src/cli/headless.rs` via `comfy-table-inline` (using `Table::force_no_tty` by default for zero unsafe).
 - [ ] Implement interactive pagination (`/next`, `/prev`, arrow keys, `updater.max-lines`).
 - [ ] Implement interactive commands: `*`, `*-force`, crate selection, `/back`, `/exit`, `/quit`.
 - [ ] Implement in-app generic help (`/?`, `/h`, `/help`).
-- [ ] Implement headless mode `rrdu --run=scan` (5-column formatted table output, exit code 0/1).
-- [ ] Implement headless mode `rrdu --run=full` (automated update execution).
+- [x] Implement headless mode `rrdu --headless` (nested formatted table output, exit code 0/1).
 - [ ] Implement `rrdu --report` diagnostic report generator with privacy sanitization.
 - [ ] Implement `rrdu -h` / `--help` CLI documentation display.
 
@@ -376,7 +376,7 @@ rust-recursive-deps-updater/
 ### Phase 6: End-to-End Verification, Fixtures & Release v0.1.0
 
 - [ ] Implement integration tests in `tests/` using `tempfile` against fixture workspaces.
-- [ ] Test headless CI runs (`--run=scan`, `--run=full`) on Linux and Windows.
+- [ ] Test headless CI runs (`--headless`) on Linux and Windows.
 - [ ] Verify clean `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo test`.
 - [ ] Verify `cargo-audit` passes with zero vulnerabilities.
 - [ ] Update crate metadata in `Cargo.toml` to `version = "0.1.0"`.

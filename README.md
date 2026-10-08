@@ -39,7 +39,7 @@
 - **RustSec Security Advisory Checks:** Integrates package vulnerability audits directly from `rustsec.org` to report known security patches, CVEs, and affected SemVer ranges.
 - **Persistent Tri-Cache:** Strongly-typed user-space cache (`~/.rrdu/cache/`) with TTL expiration checks (24h for crates.io index/API, 6h for security advisories) to eliminate redundant network calls across sessions.
 - **Structured Status & Diagnostic Logging:** Clean logging implementation via `log` and `simple_logger` with typed module status codes (`1YXX` - `6YXX`) and timestamped console output.
-- **Headless CI & GitHub Action:** Single-argument execution (`--run=scan` / `--run=full`) providing a clean 5-column tabular report for CI/CD gates.
+- **Headless CI & GitHub Action:** Dedicated non-interactive audit execution (`--headless`) providing a clean tabular report for CI/CD gates.
 - **Integrated Self-Update:** Update `rrdu` directly to the newest release with `rrdu --self-update`.
 - **Dynamic Terminal & CI Table Reporting:** Powered by `comfy-table-inline` (a custom release of `comfy-table` integrating native inline table support) with `Table::force_no_tty` by default to ensure 100% safe Rust and zero unsafe `ioctl` calls, while delivering beautiful auto-wrapping layouts, clean borders, and SemVer status highlights across both interactive and headless CI modes.
 
@@ -93,17 +93,16 @@ Generate a tailored, documented `.rrduconfig` file by scanning the workspace:
 rrdu --init
 ```
 
-### 3. Headless CI / Automation Mode
+### 3. Headless CI / Audit Mode
 
-Automate dependency checks and upgrades in your CI pipelines:
+Automate dependency health checks in your CI pipelines:
 
 ```sh
-# Run non-interactive check with 5-column tabular output (exits with code 1 if outdated)
-rrdu --run=scan
-
-# Run automated updates according to .rrduconfig settings
-rrdu --run=full
+# Run non-interactive dependency check with audit table (exits with code 1 if outdated, 0 if up to date)
+rrdu --headless
 ```
+
+> **Note:** Scans and cached API queries are performed automatically upon launch. To protect your codebase from unintended automated modifications, dependency updates are never applied unattended; all updates must be validated and confirmed by the user in interactive mode (`rrdu`).
 
 ### 4. Self-Update
 
@@ -169,7 +168,7 @@ updater:
 | `workspace.exclude.section` | `mapping`      | Section-specific exclusions (e.g. `dev-dependencies`, table sections) _(optional)_      |
 | `workspace.sub-config`      | `bool`         | Set to `true` if the sub-project provides its own `.rrduconfig` _(default: false)_      |
 | `updater.exclude`           | `list`         | Folders to completely skip during recursive scans _(optional)_                          |
-| `updater.auto-update`       | `string`       | Default update behavior for `--run=full` (`none`, `semver-safe`, or `full`)                       |
+| `updater.auto-update`       | `string`       | Interactive update pre-selection strategy (`none`, `semver-safe`, or `full`)                       |
 | `updater.auto-scan`         | `bool \| list` | Scan trigger behavior upon CLI launch _(default: true)_                                 |
 | `updater.max-lines`         | `int`          | Maximum items displayed per page in interactive mode _(default: 50)_                    |
 | `updater.version`           | `string`       | Version of rrdu the config was created with, used for compatibility checks              |
