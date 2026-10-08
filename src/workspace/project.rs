@@ -201,7 +201,7 @@ impl DependencyEntry {
                         format!("Unsupported value: {:}", v),
                     ),
                     DependencyVersion::Excluded(r) => {
-                        (Boolean::True, Boolean::False, self.get_exclude_reason(r))
+                        (Boolean::True, Boolean::False, r.to_string())
                     }
                 }
             }
@@ -210,15 +210,6 @@ impl DependencyEntry {
                 Boolean::False,
                 format!("Scan not fullfilled for DEPENDENCY '{:}'", self.package()),
             ),
-        }
-    }
-
-    /// Returns the reason why a dependency is excluded
-    fn get_exclude_reason(&self, reason: &ExcludeReason) -> String {
-        match reason {
-            ExcludeReason::ExcludedInProject => "Excluded project wide!".to_string(),
-            ExcludeReason::ExcludedInSection => "Excluded in section!".to_string(),
-            ExcludeReason::ExcludedSection => "Section excluded!".to_string(),
         }
     }
 
