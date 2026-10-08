@@ -14,8 +14,8 @@ use crate::{
     simple_status,
     status_codes::Module,
 };
-use std::collections::HashMap;
 use std::path::PathBuf;
+use std::{collections::HashMap, fmt::Display};
 use toml_edit::*;
 
 impl DependencyEntry {
@@ -154,7 +154,7 @@ impl DependencyEntry {
     }
 
     /// Return the 'crates.io' package name, if the dependency us supported. else None
-    pub fn is_dep_included(&self) -> Result<&str, DEPENDENCYRow> {
+    pub fn is_dep_included(&self) -> Result<&str, DependencyRow> {
         match &self.version() {
             DependencyVersion::Supported(_) => Ok(self.package()),
             _ => Err(self.get_dependency_row_valus(None)),
@@ -168,7 +168,7 @@ impl DependencyEntry {
     ///
     /// # Returns
     /// `(Boolean, Boolean, String)`: is_latest, needs_migration, message
-    pub fn get_dependency_row_valus(&self, latest: Option<String>) -> DEPENDENCYRow {
+    pub fn get_dependency_row_valus(&self, latest: Option<String>) -> DependencyRow {
         let version = self.version();
         match latest {
             Some(l) => {
@@ -445,9 +445,27 @@ pub struct Projects {
     /// Path to the directory containing `Cargo.toml`.
     pub path: PathBuf,
     /// Parsed dependencies grouped by section.
-    pub deps: ProjectDEPENDENCY,
+    pub deps: ProjectDependency,
     /// Associated project configuration.
     pub config: ProjectConfig,
+}
+
+impl Display for ProjectDependency {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProjectDependency::ExcludedProject => write!(f, "Excluded project"),
+            ProjectDependency::Map(sec) => {
+                write!(
+                    f,
+                    "{:}",
+                    sec.iter()
+                        .map(|(s, d)| format!("{s}:\n{:}", d))
+                        .collect::<Vec<String>>()
+                        .join("\n")
+                )
+            }
+        }
+    }
 }
 
 impl Projects {
@@ -465,17 +483,17 @@ impl Projects {
         }
     }
 
-    fn define_deps(is_excuded: Boolean) -> ProjectDEPENDENCY {
+    fn define_deps(is_excuded: Boolean) -> ProjectDependency {
         match is_excuded {
-            Boolean::True => ProjectDEPENDENCY::ExcludedProject,
-            Boolean::False => ProjectDEPENDENCY::Map(HashMap::new()),
+            Boolean::True => ProjectDependency::ExcludedProject,
+            Boolean::False => ProjectDependency::Map(HashMap::new()),
         }
     }
 
     /// Parses the project's `Cargo.toml` manifest and extracts all dependency sections.
     pub fn parse_project(&mut self) {
         match self.deps {
-            ProjectDEPENDENCY::ExcludedProject => {
+            ProjectDependency::ExcludedProject => {
                 simple_status!(
                     log::LevelFilter::Debug,
                     Module::WORKSPACE,
@@ -483,7 +501,7 @@ impl Projects {
                     format!("Skipping excluded project '{}'", self.name)
                 );
             }
-            ProjectDEPENDENCY::Map(_) => {
+            ProjectDependency::Map(_) => {
                 simple_status!(
                     log::LevelFilter::Debug,
                     Module::WORKSPACE,
@@ -541,11 +559,11 @@ impl Projects {
     ///
     /// # Arguments
     /// * `deps` - The project dependencies.
-    pub fn set_deps(&mut self, deps: ProjectDEPENDENCY) {
+    pub fn set_deps(&mut self, deps: ProjectDependency) {
         self.deps = deps;
     }
 
-    fn map_deps(&self, section: DependencySection, doc: DocumentMut) -> DEPENDENCYSectionMap {
+    fn map_deps(&self, section: DependencySection, doc: DocumentMut) -> DependencySectionMap {
         let mut map: HashMap<String, DependencyEntry> = HashMap::new();
         if let Some(t) = section.get_item(&doc) {
             match section.is_dependency_section() {
@@ -568,9 +586,9 @@ impl Projects {
             };
         };
         if map.is_empty() {
-            return DEPENDENCYSectionMap::Empty;
+            return DependencySectionMap::Empty;
         }
-        DEPENDENCYSectionMap::Map(map)
+        DependencySectionMap::Map(map)
     }
 
     /// Recursively traverses TOML AST tables to locate dependency sections.
@@ -585,7 +603,7 @@ impl Projects {
         section: Option<String>,
         key: &str,
         item: Item,
-        collector: &mut HashMap<DependencySection, Option<DEPENDENCYSectionMap>>,
+        collector: &mut HashMap<DependencySection, Option<DependencySectionMap>>,
     ) {
         match &item {
             Item::Table(t) => {
@@ -611,7 +629,7 @@ impl Projects {
                         Some(excluded_section_values) if excluded_section_values.is_empty() => {
                             collector.insert(
                                 mapable_section,
-                                Some(DEPENDENCYSectionMap::ExcludedSection),
+                                Some(DependencySectionMap::ExcludedSection),
                             );
                         }
                         _ => {
@@ -628,12 +646,12 @@ impl Projects {
             .iter()
             .map(|(k, v)| (k.to_string(), v.clone()))
             .collect::<Vec<(String, Item)>>();
-        let mut collector: HashMap<DependencySection, Option<DEPENDENCYSectionMap>> =
+        let mut collector: HashMap<DependencySection, Option<DependencySectionMap>> =
             HashMap::new();
         for (k_def, v_def) in k {
             self.search_sections(None, &k_def.to_string(), v_def.clone(), &mut collector);
         }
-        let mut mapped_deps: HashMap<DependencySection, DEPENDENCYSectionMap> = HashMap::new();
+        let mut mapped_deps: HashMap<DependencySection, DependencySectionMap> = HashMap::new();
         for (sec, deps) in collector {
             if deps.is_none() {
                 mapped_deps.insert(sec.clone(), self.map_deps(sec, toml_doc.clone()));
@@ -649,7 +667,7 @@ impl Projects {
                 mapped_deps.len()
             )
         );
-        self.set_deps(ProjectDEPENDENCY::Map(mapped_deps));
+        self.set_deps(ProjectDependency::Map(mapped_deps));
     }
 
     /// Takes a mutatable hashmap to collect the included and supported dependencies to scan for newer versions.
@@ -657,9 +675,9 @@ impl Projects {
     /// # Arguments
     /// * `collected_deps` - Mutable map collecting unique crate names for registry querying.
     pub fn list_all_deps(&self, collected_deps: &mut HashMap<String, DependencyCollectionVersion>) {
-        if let ProjectDEPENDENCY::Map(sec_map) = &self.deps {
+        if let ProjectDependency::Map(sec_map) = &self.deps {
             for deps in sec_map.values() {
-                if let DEPENDENCYSectionMap::Map(dep_map) = deps {
+                if let DependencySectionMap::Map(dep_map) = deps {
                     for dep in dep_map.values() {
                         if let Ok(p) = dep.is_dep_included() {
                             simple_status!(
