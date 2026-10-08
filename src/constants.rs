@@ -90,3 +90,6 @@ pub const DEPENDENCY_SECTION_PREFIX: [&str; 5] = [
     "dev-dependencies",
     "build-dependencies",
 ];
+
+/// Terminal max width
+pub const TERMINAL_MAX_WIDTH: u16 = 100;

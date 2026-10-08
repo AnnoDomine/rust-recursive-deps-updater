@@ -66,6 +66,16 @@ pub enum ExcludeReason {
     ExcludedInSection,
 }
 
+impl Display for ExcludeReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExcludeReason::ExcludedInProject => write!(f, "Excluded project wide!"),
+            ExcludeReason::ExcludedInSection => write!(f, "Excluded in section!"),
+            ExcludeReason::ExcludedSection => write!(f, "Section excluded!"),
+        }
+    }
+}
+
 /// State of a collected dependency version from the registry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DependencyCollectionVersion {
@@ -79,7 +89,7 @@ pub enum DependencyCollectionVersion {
 
 /// Representation of dependencies within a specific section.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DEPENDENCYSectionMap {
+pub enum DependencySectionMap {
     /// Map of dependency names to parsed entries.
     Map(HashMap<String, DependencyEntry>),
     /// Entire section was excluded via configuration.
@@ -88,11 +98,45 @@ pub enum DEPENDENCYSectionMap {
     Empty,
 }
 
+impl Display for DependencySectionMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DependencySectionMap::Empty => write!(f, "No dependencies"),
+            DependencySectionMap::ExcludedSection => write!(f, "Section is excluded"),
+            DependencySectionMap::Map(deps) => {
+                write!(
+                    f,
+                    "{:}",
+                    deps.iter()
+                        .map(|d| format!("- {:}", d.0))
+                        .collect::<Vec<String>>()
+                        .join("\n")
+                )
+            }
+        }
+    }
+}
+
+impl DependencySectionMap {
+    /// Returns the number of dependencies in this section map.
+    pub fn len(&self) -> usize {
+        match self {
+            DependencySectionMap::Map(deps) => deps.len(),
+            _ => 0,
+        }
+    }
+
+    /// Returns `true` if this dependency section map is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
 /// Map of all dependency sections in a project.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ProjectDEPENDENCY {
+pub enum ProjectDependency {
     /// Map of sections to their dependency entries.
-    Map(HashMap<DependencySection, DEPENDENCYSectionMap>),
+    Map(HashMap<DependencySection, DependencySectionMap>),
     /// Project was entirely excluded via configuration.
     ExcludedProject,
 }
@@ -116,6 +160,18 @@ pub enum DependencyVersion {
     UnsupportedValue(String),
     /// Excluded dependency incl. reason
     Excluded(ExcludeReason),
+}
+
+impl Display for DependencyVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DependencyVersion::Excluded(reason) => write!(f, "{reason}"),
+            DependencyVersion::Supported(version) => write!(f, "{version}"),
+            DependencyVersion::UnsupportedKeys { keys } => write!(f, "{:}", keys.join(", ")),
+            DependencyVersion::MissingRequired { fields } => write!(f, "{:}", fields.join(", ")),
+            DependencyVersion::UnsupportedValue(value) => write!(f, "{value}"),
+        }
+    }
 }
 
 /// A parsed dependency entry representing one of the valid `Cargo.toml` declaration formats.
@@ -203,7 +259,7 @@ pub struct TableDependency {
 /// Values to generate CI and CLI dependency table row
 ///
 /// (is latest, needs migration, version string)
-pub type DEPENDENCYRow = (Boolean, Boolean, String);
+pub type DependencyRow = (Boolean, Boolean, String);
 
 /// Identifies a dependency section within `Cargo.toml`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

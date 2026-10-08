@@ -37,6 +37,8 @@ pub enum Module {
     UPDATER,
     /// Cache operations and disk storage (`6YXX`).
     CACHE,
+    /// CLI render and generating (`7YXX`).
+    CLI,
 }
 
 impl Display for Module {
@@ -48,6 +50,7 @@ impl Display for Module {
             Module::REGISTRYCLIENT => write!(f, "RRDU Registry Client Module"),
             Module::UPDATER => write!(f, "RRDU Updater Module"),
             Module::CACHE => write!(f, "RRDU Cache Module"),
+            Module::CLI => write!(f, "RRDU CLI Module"),
         }
     }
 }
@@ -62,6 +65,7 @@ impl Module {
             Module::REGISTRYCLIENT => 4u8,
             Module::UPDATER => 5u8,
             Module::CACHE => 6u8,
+            Module::CLI => 7u8,
         }
     }
 }
