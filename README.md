@@ -41,7 +41,7 @@
 - **Structured Status & Diagnostic Logging:** Clean logging implementation via `log` and `simple_logger` with typed module status codes (`1YXX` - `6YXX`) and timestamped console output.
 - **Headless CI & GitHub Action:** Single-argument execution (`--run=scan` / `--run=full`) providing a clean 5-column tabular report for CI/CD gates.
 - **Integrated Self-Update:** Update `rrdu` directly to the newest release with `rrdu --self-update`.
-- **Zero-Dependency Table Reporting:** Terminal tables rendered natively without external table crates for minimal attack surface.
+- **Dynamic Terminal & CI Table Reporting:** Powered by `comfy-table-inline` (a custom release of `comfy-table` integrating native inline table support) with `Table::force_no_tty` by default to ensure 100% safe Rust and zero unsafe `ioctl` calls, while delivering beautiful auto-wrapping layouts, clean borders, and SemVer status highlights across both interactive and headless CI modes.
 
 ---
 

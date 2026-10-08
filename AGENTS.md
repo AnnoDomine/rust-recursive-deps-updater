@@ -20,6 +20,7 @@ This document serves as the single source of truth and directive for all AI agen
   - The tool must never require or attempt to request elevated (root or administrator) privileges on any operating system (Linux or Windows).
 - **100% Safe Rust:**
   - `#![forbid(unsafe_code)]` must remain active at the root of the binary crate (`src/main.rs`). Under no circumstances should `unsafe` blocks or unsafe traits be introduced.
+  - When utilizing terminal formatting libraries such as `comfy-table-inline` (custom edition of `comfy-table` with inline table support), `Table::force_no_tty` must be configured by default. This eliminates any underlying `unsafe` `libc`/`ioctl` calls (used for TTY terminal width detection) across all environments and preserves complete memory safety.
 - **Path Traversal Defense:**
   - All paths from configuration files (`.rrduconfig`) or user inputs must be strictly validated.
   - Only the current directory (`./`) or internal subdirectories (e.g. `crates/...`) are permitted.
@@ -50,6 +51,7 @@ This document serves as the single source of truth and directive for all AI agen
   - All source code identifiers (variables, functions, structs, enums, modules), comments, documentation, commit messages, and pull request descriptions must be in **English**.
 - **Documentation Standards:**
   - Every public module, struct, enum, trait, and function must have descriptive English `///` doc comments following Rustdoc conventions (with `# Arguments`, `# Returns`, `# Errors` where applicable).
+  - The official user and project documentation is hosted via mdBook in `docs/` and deployed to GitHub Pages. All documentation pages must be maintained in English and reflect the active release version.
 - **Dependency Management & Up-to-Date Versions:**
   - Whenever introducing, modifying, or managing dependencies in `Cargo.toml`, agents must verify and use the **latest stable version** available on `crates.io`. As a tool dedicated to updating dependencies, `rrdu` itself must maintain exemplary dependency hygiene and never ship with outdated dependencies.
   - Dependencies must strictly originate from `crates.io` (no `git` or `path` dependencies for released artifacts).
@@ -63,7 +65,7 @@ This document serves as the single source of truth and directive for all AI agen
   - To safeguard this repository against vibe-coding, unverified code bloat, and automated credit crawling, AI assistance is permitted exclusively under the following strict conditions:
     1. **Allowed without watermarking:**
        - Assisting with resolving compiler, linter, or check errors (`cargo check`, `cargo clippy`, `cargo fmt`).
-       - Drafting and maintaining documentation (Rustdoc `///` comments, Markdown specifications, guides).
+       - Drafting and maintaining documentation (Rustdoc `///` comments, Markdown specifications, guides, and the mdBook GitHub Pages documentation in `docs/`). The agent is explicitly authorized to autonomously create, complete, and update these documentation files to reflect the current release version and repository state.
        - Small, targeted code integrations explicitly requested by the human developer, strictly up to a maximum length of **4 lines**.
        - Unit-tests even above the maximum length restriction.
        - Add log-blocks based on the [Structured Logging Guidelines](./CONTRIBUTING.md) from the contributing guideline.
@@ -77,9 +79,14 @@ This document serves as the single source of truth and directive for all AI agen
 ## 4. Module & Directory Structure
 ```
 rust-recursive-deps-updater/
-├── .github/workflows/   # CI (ci.yml), PR title linting (lint_pr.yml), Releases (release.yml)
+├── .github/workflows/   # CI (ci.yml), PR title linting (lint_pr.yml), Releases (release.yml), Pages (pages.yml)
 ├── .githooks/           # Git hooks (pre-commit, commit-msg)
+├── benches/             # Criterion micro-benchmarks
+├── docs/                # mdBook user documentation & GitHub Pages source
+│   ├── book.toml        # mdBook configuration
+│   └── src/             # Markdown documentation chapters
 ├── src/
+│   ├── lib.rs           # #![forbid(unsafe_code)], core library exports
 │   ├── main.rs          # #![forbid(unsafe_code)], CLI entry point & dispatcher
 │   ├── cli/             # Interactive prompts, pagination, display, table formatting
 │   ├── config/          # .rrduconfig model, noyalib YAML parsing, path validation
