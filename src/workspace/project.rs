@@ -234,27 +234,22 @@ impl DependencyEntry {
             _ => return (Boolean::True, Boolean::False),
         };
 
-        let (Ok(req), Ok(latest_ver)) = (
-            semver::VersionReq::parse(current_raw),
+        let (Some(mut current_ver), Ok(mut latest_ver)) = (
+            Self::parse_base_version(current_raw),
             semver::Version::parse(latest),
         ) else {
             return (Boolean::True, Boolean::False);
         };
 
-        // If latest satisfies the current requirement, Cargo already resolves it
-        if req.matches(&latest_ver) {
-            return (Boolean::True, Boolean::False);
-        }
-
-        let Some(current_ver) = Self::parse_base_version(current_raw) else {
-            return (Boolean::True, Boolean::False);
-        };
+        // SemVer 2.0 needs to cut by the build-metadate
+        current_ver.build = semver::BuildMetadata::EMPTY;
+        latest_ver.build = semver::BuildMetadata::EMPTY;
 
         if current_ver >= latest_ver {
             return (Boolean::True, Boolean::False);
         }
 
-        // Installed requirement does not cover latest -> is_latest = False
+        // Installed version is older than latest -> is_latest = False
         let needs_migration = if current_ver.major >= 1 {
             latest_ver.major > current_ver.major
         } else if current_ver.minor >= 1 {
@@ -986,11 +981,11 @@ mod test_dependency_entry {
 
         assert_eq!(
             make_dep("^1.2.0").check_if_latest("1.2.5"),
-            (Boolean::True, Boolean::False)
+            (Boolean::False, Boolean::False)
         );
         assert_eq!(
             make_dep("^1.2.0").check_if_latest("1.3.0"),
-            (Boolean::True, Boolean::False)
+            (Boolean::False, Boolean::False)
         );
 
         assert_eq!(
@@ -1000,7 +995,7 @@ mod test_dependency_entry {
 
         assert_eq!(
             make_dep("^0.1.2").check_if_latest("0.1.5"),
-            (Boolean::True, Boolean::False)
+            (Boolean::False, Boolean::False)
         );
         assert_eq!(
             make_dep("^0.1.2").check_if_latest("0.2.0"),
@@ -1014,7 +1009,7 @@ mod test_dependency_entry {
 
         assert_eq!(
             make_dep("~1.2.0").check_if_latest("1.2.4"),
-            (Boolean::True, Boolean::False)
+            (Boolean::False, Boolean::False)
         );
         assert_eq!(
             make_dep("~1.2.0").check_if_latest("1.3.0"),
@@ -1023,6 +1018,24 @@ mod test_dependency_entry {
         assert_eq!(
             make_dep("~1.2.0").check_if_latest("2.0.0"),
             (Boolean::False, Boolean::True)
+        );
+
+        // Build metadata edge cases (SemVer 2.0 Section 10: build metadata ignored for precedence)
+        assert_eq!(
+            make_dep("0.25.16").check_if_latest("0.25.16+spec-1.1.0"),
+            (Boolean::True, Boolean::False)
+        );
+        assert_eq!(
+            make_dep("1.0.0").check_if_latest("1.0.0+build.123"),
+            (Boolean::True, Boolean::False)
+        );
+        assert_eq!(
+            make_dep("1.0.0+build.1").check_if_latest("1.0.0+build.2"),
+            (Boolean::True, Boolean::False)
+        );
+        assert_eq!(
+            make_dep("1.0.0+build.1").check_if_latest("1.0.1+build.2"),
+            (Boolean::False, Boolean::False)
         );
     }
 
