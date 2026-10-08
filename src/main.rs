@@ -9,25 +9,10 @@ use clap::Parser;
 use log::LevelFilter;
 use simple_logger::SimpleLogger;
 
-use crate::status_codes::Module;
-
-/// Workspace configuration loading, generation, and validation.
-pub mod config;
-/// Crates.io index/API communication, cache, and response models.
-pub mod registry;
-/// Workspace project discovery, TOML parsing, and dependency mapping.
-pub mod workspace;
-
-/// Global application constants.
-pub mod constants;
-/// Domain enums and data types.
-pub mod enums;
-/// Error types and error codes.
-pub mod errors;
-/// Path and validation utility functions.
-pub mod functions;
-/// Structured status code definitions and logging macros.
-pub mod status_codes;
+use rrdu::{
+    cli::templates::Template, config::rrdu_config::RrduConfig, simple_status, status_codes::Module,
+    workspace::project::Workspace,
+};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -56,7 +41,7 @@ fn main() {
     let args = Args::parse();
 
     if args.init {
-        config::rrdu_config::RrduConfig::create_config();
+        RrduConfig::create_config();
         return;
     }
     simple_status!(
@@ -65,7 +50,8 @@ fn main() {
         100,
         "This application is currently in an early stage and not ready for use!"
     );
-    let mut w = workspace::project::Workspace::new();
+    let mut w = Workspace::new();
     let _ = w.read_rrdu_config(None);
     w.fetch_latest_versions();
+    Template::workspace_table(w);
 }
