@@ -828,7 +828,7 @@ impl Workspace {
         } else {
             client.map_latest_by_api(&mut self.collected_deps);
         }
-        self.client = Some(client);
+        self.client = Some(client.clone());
     }
 }
 
