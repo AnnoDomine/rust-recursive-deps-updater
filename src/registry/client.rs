@@ -15,6 +15,7 @@ use ureq::{
 use crate::{
     constants::*,
     enums::*,
+    errors::CollectionVersionError,
     meta_status,
     registry::{
         cache_registry::CacheRegistry,
@@ -121,15 +122,84 @@ impl Client {
         }
     }
 
-    /// Persists all in-memory cache registries to disk.
-    pub fn save_cache(&self) {
-        self.crates_io_index_cache.clone().save_cache(None);
-        self.crates_io_api_cache.clone().save_cache(None);
-        self.rustsec_json_cache.clone().save_cache(None);
+    /// Maps registry responses to the collected dependencies map with their latest resolved version or error.
+    ///
+    /// # Arguments
+    /// * `collected_deps` - Mutable map collecting resolved dependency versions.
+    pub fn map_latest_by_api(
+        &self,
+        collected_deps: &mut HashMap<String, DependencyCollectionVersion>,
+    ) {
+        for (dep, entry) in &self.crates {
+            if let RegistryClientState::Succesed(c) = entry
+                && let Some(api) = &c.api
+            {
+                collected_deps.insert(
+                    dep.to_string(),
+                    DependencyCollectionVersion::Latest(api.crate_field.newest_version.to_string()),
+                );
+            } else if let RegistryClientState::Errored(e) = entry {
+                collected_deps.insert(
+                    dep.to_string(),
+                    DependencyCollectionVersion::Error(e.clone()),
+                );
+            } else {
+                collected_deps.insert(
+                    dep.to_string(),
+                    DependencyCollectionVersion::Error(CollectionVersionError::Other(
+                        "Unexpected error".to_string(),
+                    )),
+                );
+            }
+        }
+    }
+
+    fn get_newest_index(&self, index: &[CratesIndexItem]) -> Option<CratesIndexItem> {
+        let unyanked = index.iter().filter(|e| !e.yanked);
+        let stable = unyanked
+            .clone()
+            .filter(|e| semver::Version::parse(&e.vers).is_ok_and(|v| v.pre.is_empty()));
+        stable
+            .max_by_key(|e| semver::Version::parse(&e.vers).ok())
+            .or_else(|| unyanked.max_by_key(|e| semver::Version::parse(&e.vers).ok()))
+            .cloned()
+    }
+
+    /// Maps sparse index responses to the collected dependencies map with their latest resolved version or error.
+    ///
+    /// # Arguments
+    /// * `collected_deps` - Mutable map collecting resolved dependency versions.
+    pub fn map_latest_by_index(
+        &self,
+        collected_deps: &mut HashMap<String, DependencyCollectionVersion>,
+    ) {
+        for (dep, entry) in &self.crates {
+            if let RegistryClientState::Succesed(c) = entry
+                && let Some(index) = &c.index
+                && let Some(newest) = self.get_newest_index(index)
+            {
+                collected_deps.insert(
+                    dep.to_string(),
+                    DependencyCollectionVersion::Latest(newest.vers),
+                );
+            } else if let RegistryClientState::Errored(e) = entry {
+                collected_deps.insert(
+                    dep.to_string(),
+                    DependencyCollectionVersion::Error(e.clone()),
+                );
+            } else {
+                collected_deps.insert(
+                    dep.to_string(),
+                    DependencyCollectionVersion::Error(CollectionVersionError::Other(
+                        "Unexpected error".to_string(),
+                    )),
+                );
+            }
+        }
     }
 
     /// Executes registry queries sequentially for all uninitialized crates, respecting rate limits.
-    pub fn start_calls(&mut self) {
+    pub fn start_calls(&mut self, is_headless: bool) {
         let uninitialised: Vec<String> = self
             .crates
             .iter()
@@ -154,45 +224,47 @@ impl Client {
                 100,
                 format!("Fetching metadata for '{k}'...")
             );
-            if let Err(e) = self.call_index(&mut response_map, &k) {
-                meta_status!(
-                    LevelFilter::Error,
-                    Module::REGISTRYCLIENT,
-                    500,
-                    format!("Failed to query sparse index for '{k}'"),
-                    &e
-                );
-                self.set_crate_state(
-                    k,
-                    RegistryClientState::Errored(crate::errors::CollectionVersionError::Other(
-                        e.to_string(),
-                    )),
-                );
-            } else if let Err(e) = self.call_api(&mut response_map, &k) {
-                meta_status!(
-                    LevelFilter::Error,
-                    Module::REGISTRYCLIENT,
-                    500,
-                    format!("Failed to query API metadata for '{k}'"),
-                    &e
-                );
-                self.set_crate_state(
-                    k,
-                    RegistryClientState::Errored(crate::errors::CollectionVersionError::Other(
-                        e.to_string(),
-                    )),
-                );
-            } else {
-                let _ = self.call_audit(&mut response_map, &k);
-                self.set_crate_state(k, RegistryClientState::Succesed(response_map));
+            match self.call_index(&mut response_map, &k) {
+                Err(e) => {
+                    meta_status!(
+                        LevelFilter::Error,
+                        Module::REGISTRYCLIENT,
+                        500,
+                        format!("Failed to query sparse index for '{k}'"),
+                        &e
+                    );
+                    self.set_crate_state(
+                        k,
+                        RegistryClientState::Errored(crate::errors::CollectionVersionError::Other(
+                            e.to_string(),
+                        )),
+                    );
+                }
+                Ok(_) => {
+                    if !is_headless {
+                        if let Err(e) = self.call_api(&mut response_map, &k) {
+                            meta_status!(
+                                LevelFilter::Error,
+                                Module::REGISTRYCLIENT,
+                                500,
+                                format!("Failed to query API metadata for '{k}'"),
+                                &e
+                            );
+                            self.set_crate_state(
+                                k.clone(),
+                                RegistryClientState::Errored(
+                                    crate::errors::CollectionVersionError::Other(e.to_string()),
+                                ),
+                            );
+                        } else {
+                            let _ = self.call_audit(&mut response_map, &k);
+                            self.set_crate_state(k, RegistryClientState::Succesed(response_map));
+                        }
+                    } else {
+                        self.set_crate_state(k, RegistryClientState::Succesed(response_map));
+                    }
+                }
             }
-            simple_status!(
-                LevelFilter::Debug,
-                Module::REGISTRYCLIENT,
-                100,
-                "Rate limit cooldown: waiting 1s for next request."
-            );
-            sleep(TIME_BETWEEN_REQUESTS);
         }
         simple_status!(
             LevelFilter::Info,
@@ -200,7 +272,6 @@ impl Client {
             200,
             "Completed registry queries for all crates."
         );
-        self.save_cache();
     }
 
     /// Updates the query state for a specific crate.
@@ -339,6 +410,7 @@ impl Client {
                     let parsed = CratesIndexItem::parse_response(&body);
                     map.set_index(parsed.clone());
                     self.crates_io_index_cache.add_cache_entry(c, parsed);
+                    self.crates_io_index_cache.save_cache(None);
                 };
             }
         };
@@ -404,7 +476,15 @@ impl Client {
                         .read_json::<Box<CratesIOResponse>>()?;
                     map.set_api(body.clone());
                     self.crates_io_api_cache.add_cache_entry(c, body);
+                    self.crates_io_api_cache.save_cache(None);
                 };
+                simple_status!(
+                    LevelFilter::Debug,
+                    Module::REGISTRYCLIENT,
+                    100,
+                    "Rate limit cooldown: waiting 1s for next request."
+                );
+                sleep(TIME_BETWEEN_REQUESTS);
             }
         }
         simple_status!(
@@ -487,7 +567,15 @@ impl Client {
 
                     map.set_audit(body.clone());
                     self.rustsec_json_cache.add_cache_entry(c, body);
+                    self.rustsec_json_cache.save_cache(None);
                 };
+                simple_status!(
+                    LevelFilter::Debug,
+                    Module::REGISTRYCLIENT,
+                    100,
+                    "Rate limit cooldown: waiting 1s for next request."
+                );
+                sleep(TIME_BETWEEN_REQUESTS);
             }
         }
         simple_status!(

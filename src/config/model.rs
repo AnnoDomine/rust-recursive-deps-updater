@@ -125,6 +125,25 @@ impl ProjectConfig {
             },
         }
     }
+
+    /// Checks whether a dependency entry is excluded at project or section level and marks it accordingly.
+    ///
+    /// # Arguments
+    /// * `entry` - The dependency entry to evaluate.
+    /// * `section` - Optional section name containing the dependency.
+    pub fn is_dep_excluded(&self, entry: &mut DependencyEntry, section: Option<String>) {
+        let in_project = &self.exclude.project;
+        let in_section = &self.exclude.section;
+        let key = entry.package();
+        if let Some(section_name) = section
+            && let Some(sec) = in_section.get(&section_name)
+            && sec.contains(&key.to_string())
+        {
+            entry.exclude_dep(&ExcludeReason::ExcludedInSection);
+        } else if in_project.contains(&key.to_string()) {
+            entry.exclude_dep(&ExcludeReason::ExcludedInProject);
+        };
+    }
 }
 
 /// Global updater settings controlling automated scans, updates, and UI display.

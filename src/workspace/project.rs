@@ -170,46 +170,42 @@ impl DependencyEntry {
     /// `(Boolean, Boolean, String)`: is_latest, needs_migration, message
     pub fn get_dependency_row_valus(&self, latest: Option<String>) -> DependencyRow {
         let version = self.version();
-        match latest {
-            Some(l) => {
-                match version {
-                    DependencyVersion::Supported(v) => {
-                        let (is_latest, needs_migration) = self.check_if_latest(&l);
-                        let message = match &is_latest {
-                            Boolean::True => v.to_string(),
-                            Boolean::False => format!("{:} -> {:}", v, l),
-                        };
-                        (is_latest, needs_migration, message)
-                    }
-                    // All invalid versions are latest by default and do not need a dependency migration.
-                    DependencyVersion::UnsupportedKeys { keys } => {
-                        let key_string = if keys.len() > 1 { "keys" } else { "key" };
-                        (
-                            Boolean::True,
-                            Boolean::False,
-                            format!("Unsupported {:}: {:}", key_string, keys.join(", ")),
-                        )
-                    }
-                    DependencyVersion::MissingRequired { fields } => (
-                        Boolean::True,
-                        Boolean::False,
-                        format!("Missing: {:}", fields.join(", ")),
-                    ),
-                    DependencyVersion::UnsupportedValue(v) => (
-                        Boolean::True,
-                        Boolean::False,
-                        format!("Unsupported value: {:}", v),
-                    ),
-                    DependencyVersion::Excluded(r) => {
-                        (Boolean::True, Boolean::False, r.to_string())
-                    }
+        match version {
+            DependencyVersion::Supported(v) => match latest {
+                Some(l) => {
+                    let (is_latest, needs_migration) = self.check_if_latest(&l);
+                    let message = match &is_latest {
+                        Boolean::True => v.to_string(),
+                        Boolean::False => format!("{:} -> {:}", v, l),
+                    };
+                    (is_latest, needs_migration, message)
                 }
+                None => (
+                    Boolean::True,
+                    Boolean::False,
+                    format!("Scan not fullfilled for dependency: '{:}'", self.package()),
+                ),
+            },
+            // All invalid versions are latest by default and do not need a dependency migration.
+            DependencyVersion::UnsupportedKeys { keys } => {
+                let key_string = if keys.len() > 1 { "keys" } else { "key" };
+                (
+                    Boolean::True,
+                    Boolean::False,
+                    format!("Unsupported {:}: {:}", key_string, keys.join(", ")),
+                )
             }
-            None => (
+            DependencyVersion::MissingRequired { fields } => (
                 Boolean::True,
                 Boolean::False,
-                format!("Scan not fullfilled for DEPENDENCY '{:}'", self.package()),
+                format!("Missing: {:}", fields.join(", ")),
             ),
+            DependencyVersion::UnsupportedValue(v) => (
+                Boolean::True,
+                Boolean::False,
+                format!("Unsupported value: {:}", v),
+            ),
+            DependencyVersion::Excluded(r) => (Boolean::True, Boolean::False, r.to_string()),
         }
     }
 
@@ -559,7 +555,8 @@ impl Projects {
         if let Some(t) = section.get_item(&doc) {
             match section.is_dependency_section() {
                 Some(key) => {
-                    if let Some(dep) = DependencyEntry::new(key, t) {
+                    if let Some(mut dep) = DependencyEntry::new(key, t) {
+                        self.config.is_dep_excluded(&mut dep, Some(key.to_string()));
                         map.insert(key.to_string(), dep);
                     };
                 }
@@ -567,8 +564,9 @@ impl Projects {
                     if let Some(table_items) = t.as_table() {
                         for (key, item) in table_items {
                             if !item.is_table()
-                                && let Some(dep) = DependencyEntry::new(key, item)
+                                && let Some(mut dep) = DependencyEntry::new(key, item)
                             {
+                                self.config.is_dep_excluded(&mut dep, None);
                                 map.insert(key.to_string(), dep);
                             };
                         }
@@ -806,7 +804,7 @@ impl Workspace {
     }
 
     /// Fetch the dependency versions from 'crates.io'
-    pub fn fetch_latest_versions(&mut self) {
+    pub fn fetch_latest_versions(&mut self, is_headless: bool) {
         simple_status!(
             log::LevelFilter::Info,
             Module::WORKSPACE,
@@ -818,13 +816,18 @@ impl Workspace {
         );
         let mut client = Client::new();
         client.map_crates(self.collected_deps.clone());
-        client.start_calls();
+        client.start_calls(is_headless);
         simple_status!(
             log::LevelFilter::Info,
             Module::WORKSPACE,
             200,
             "Finished fetching dependency metadata from registry."
         );
+        if is_headless {
+            client.map_latest_by_index(&mut self.collected_deps);
+        } else {
+            client.map_latest_by_api(&mut self.collected_deps);
+        }
         self.client = Some(client);
     }
 }
@@ -1075,7 +1078,7 @@ mod test_dependency_entry {
             (
                 Boolean::True,
                 Boolean::False,
-                "Scan not fullfilled for DEPENDENCY 'test'".to_string()
+                "Scan not fullfilled for dependency: 'test'".to_string()
             )
         );
 
