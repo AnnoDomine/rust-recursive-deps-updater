@@ -44,6 +44,27 @@ pub enum Boolean {
     False,
 }
 
+impl Display for Boolean {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Boolean::True => write!(f, "True"),
+            Boolean::False => write!(f, "False"),
+        }
+    }
+}
+
+impl Boolean {
+    /// Returns `true` if this boolean value is `Boolean::False`.
+    pub fn is_false(&self) -> bool {
+        *self == Boolean::False
+    }
+
+    /// Returns `true` if this boolean value is `Boolean::True`.
+    pub fn is_true(&self) -> bool {
+        *self == Boolean::True
+    }
+}
+
 /// Target dependency section classification.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TargetDepKind {
@@ -85,6 +106,8 @@ pub enum DependencyCollectionVersion {
     Latest(String),
     /// Encountered an error during registry query.
     Error(CollectionVersionError),
+    /// Encounter the dependency as ignored by config.
+    Excluded,
 }
 
 /// Representation of dependencies within a specific section.
@@ -139,6 +162,29 @@ pub enum ProjectDependency {
     Map(HashMap<DependencySection, DependencySectionMap>),
     /// Project was entirely excluded via configuration.
     ExcludedProject,
+}
+
+impl ProjectDependency {
+    /// Returns the number of dependency sections in this project.
+    pub fn len(&self) -> usize {
+        match self {
+            ProjectDependency::ExcludedProject => 0,
+            ProjectDependency::Map(sec) => sec.len(),
+        }
+    }
+
+    /// Returns `true` if the project has no dependency sections.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Returns the total count of dependency entries across all sections.
+    pub fn total_values(&self) -> usize {
+        match self {
+            ProjectDependency::ExcludedProject => 0,
+            ProjectDependency::Map(sec) => sec.iter().map(|e| e.1.len()).sum(),
+        }
+    }
 }
 
 /// Classification of a dependency's version specification in `Cargo.toml`.

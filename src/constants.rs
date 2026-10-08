@@ -92,4 +92,4 @@ pub const DEPENDENCY_SECTION_PREFIX: [&str; 5] = [
 ];
 
 /// Terminal max width
-pub const TERMINAL_MAX_WIDTH: u16 = 100;
+pub const TERMINAL_MAX_WIDTH: u16 = 150;
