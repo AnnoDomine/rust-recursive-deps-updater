@@ -7,10 +7,6 @@ branding:
   color: 'orange'
 
 inputs:
-  run:
-    description: 'Execution mode: "scan" (inspect and exit with code 1 if outdated) or "full" (auto-update according to config)'
-    required: true
-    default: 'scan'
   version:
     description: 'Version of rrdu to run (e.g., "latest" or a release tag like "v0.1.0")'
     required: false
@@ -76,5 +72,7 @@ runs:
 
     - name: Run rrdu
       shell: bash
+      env:
+        RUST_LOG: Debug
       run: |
-        rrdu --run="${{ inputs.run }}"
+        rrdu --headless
