@@ -39,7 +39,7 @@ This document outlines the milestones, current progress, and upcoming engineerin
 - [x] Dual-mode logging (file-based `./rrdu.log` for interactive CLI, stderr for CI).
 - [x] Filter out yanked versions from registry responses.
 - [x] Headless CI check (`rrdu --headless`) with hierarchical audit tables.
-- [ ] Interactive pagination, spinners, and navigation (`/next`, `/prev`, `/back`, `/exit`).
+- [ ] Interactive pagination, spinners, and keyboard navigation (arrow keys, Backspace, Esc).
 - [ ] Privacy-sanitized diagnostics report (`rrdu --report`).
 
 ### Phase 5: Comment-Preserving Manifest Updater (`updater`)

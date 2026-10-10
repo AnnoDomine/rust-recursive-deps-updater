@@ -11,7 +11,7 @@ This document serves as the single source of truth and directive for all AI agen
 - Check dependencies exclusively against `crates.io` (ignoring git and path dependencies).
 - Accurately categorize version differences according to Cargo SemVer rules (`[No migration needed]` vs. `[Need manual migration]`).
 - Preserve 100% of formatting, indentation, and comments in `Cargo.toml` files using `toml_edit`.
-- Provide an interactive terminal interface (with pagination, `/next`, `/prev`, arrow keys, `/back`, `/exit`), as well as headless CI execution (`rrdu --headless`). All manifest updates must be explicitly validated and confirmed by the user in interactive mode.
+- Provide an interactive terminal interface (with pagination, arrow keys `↑`/`↓` for items, `←`/`→` for pages, `Backspace` for previous view, `Esc` or `Ctrl+C` for exit), as well as headless CI execution (`rrdu --headless`). All manifest updates must be explicitly validated and confirmed by the user in interactive mode.
 
 ---
 
@@ -23,7 +23,7 @@ This document serves as the single source of truth and directive for all AI agen
   - **Headless Mode (`--headless`):** Completely eliminates unsafe code and low-level TTY interactions. It enforces `Table::force_no_tty` by default in `comfy-table-inline` to avoid all underlying `unsafe` `libc`/`ioctl` calls, ensuring 100% safe, non-interactive execution for CI and automated pipelines.
   - **Interactive Mode:** Utilizes established terminal abstractions (`dialoguer`, `indicatif`) for rich interactive navigation, in-place line overwriting, and visual progress spinners. While these specific dependencies internally rely on low-level OS FFI/`unsafe` within their dependency trees (`console`, `libc`, `windows-sys`) to manage raw TTY modes, `rrdu` actively minimizes and mitigates potential issues through defensive fallbacks:
     - **TTY Verification Fallback:** Proactively checks whether standard input/output is a genuine interactive terminal (`Term::is_term()`). If executed in non-TTY environments, pipes, or redirected streams, it safely aborts with an informative message pointing to `--headless` rather than risking low-level `ioctl` errors.
-    - **Signal & Cancellation Trapping:** Actively intercepts user interruptions (`Ctrl+C`, `SIGINT`) and cancellation commands (`/exit`, `/quit`) to restore terminal state (unhiding the cursor and resetting raw mode) and exit cleanly with code `2`, preventing corrupted terminal sessions.
+    - **Signal & Cancellation Trapping:** Actively intercepts user interruptions (`Ctrl+C`, `SIGINT`) and exit keys (`Esc`) to restore terminal state (unhiding the cursor and resetting raw mode) and exit cleanly with code `2` on interrupt or `0` on clean exit, preventing corrupted terminal sessions.
 - **Path Traversal Defense:**
   - All paths from configuration files (`.rrduconfig`) or user inputs must be strictly validated.
   - Only the current directory (`./`) or internal subdirectories (e.g. `crates/...`) are permitted.
@@ -46,7 +46,7 @@ This document serves as the single source of truth and directive for all AI agen
   - Standardized process exit codes:
     - `0`: Success (all dependencies up to date or updates completed successfully).
     - `1`: Failure (validation error, network failure, or outdated dependencies in `--headless`).
-    - `2`: User cancellation (`/exit`, `/quit`, Ctrl+C).
+    - `2`: User cancellation (Ctrl+C).
 - **Logging & Diagnostics (No raw `println!`):**
   - Raw `println!` and `eprintln!` calls are strictly forbidden in production code paths to prevent polluting interactive terminal views or breaking CI table reporting.
   - All status reporting, diagnostic messages, and operational events must use the structured logging macros (`simple_status!`, `meta_status!`) with typed `Module` categories and standardized status codes (`1YXX` - `6YXX`) backed by the `log` facade.
@@ -71,6 +71,7 @@ This document serves as the single source of truth and directive for all AI agen
        - Drafting and maintaining documentation (Rustdoc `///` comments, Markdown specifications, guides, and the mdBook GitHub Pages documentation in `docs/`). The agent is explicitly authorized to autonomously create, complete, and update these documentation files to reflect the current release version and repository state.
        - Small, targeted code integrations explicitly requested by the human developer, strictly up to a maximum length of **4 lines**.
        - Unit-tests even above the maximum length restriction.
+       - Generating benchmarks.
        - Add log-blocks based on the [Structured Logging Guidelines](./CONTRIBUTING.md) from the contributing guideline.
     2. **Mandatory Line-by-Line Watermark for Full Integrations & Bugfixes:**
        - If an AI agent is instructed to generate full integrations, complex modules, or complete bugfixes (any code exceeding the 4-line developer limit), the agent **MUST** terminate every single generated line with the exact string:

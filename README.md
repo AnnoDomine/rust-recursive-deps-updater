@@ -34,7 +34,7 @@
 - **Zero-Privilege & Sandboxed:** Runs purely in user space without requiring root or administrator rights. Built with `#![forbid(unsafe_code)]` at the core and strict path-traversal prevention. Headless CI mode is completely free of unsafe code, while interactive mode isolates terminal dependencies (`dialoguer`, `indicatif`) with defensive TTY checks and signal recovery fallbacks.
 - **Intelligent SemVer Classification:** Distinguishes between compatible updates (`[No migration needed]`) and breaking changes (`[Need manual migration]`) based on official Cargo SemVer conventions.
 - **Formatting-Preserving Manifest Updates:** Powered by `toml_edit` to ensure all comments, inline tables, whitespace, and formatting in `Cargo.toml` remain completely intact.
-- **Interactive CLI with Pagination:** Terminal interface with in-place overwriting, page-by-page scrolling (`/next`, `/prev`, arrow keys, configurable `max-lines`), visual spinners, `/back` navigation, and clean `/exit` or `Ctrl+C` terminal restoration.
+- **Interactive CLI with Pagination:** Terminal interface with in-place overwriting, keyboard-driven navigation (arrow keys `↑`/`↓` for items, `←`/`→` for pages, configurable `max-lines`), visual spinners, `Backspace` navigation, and clean `Esc` or `Ctrl+C` terminal restoration.
 - **Two-Tier Registry Strategy:** Ultra-fast, zero-latency execution in CI pipelines via the static crates.io Sparse Index (`https://index.crates.io/`). Rich metadata queries in interactive mode strictly throttled to 1 request/second adhering to the official crates.io Data Access Policy.
 - **RustSec Security Advisory Checks:** Integrates package vulnerability audits directly from `rustsec.org` to report known security patches, CVEs, and affected SemVer ranges.
 - **Persistent Tri-Cache:** Strongly-typed user-space cache (`~/.rrdu/cache/`) with TTL expiration checks (24h for crates.io index/API, 6h for security advisories) to eliminate redundant network calls across sessions.
@@ -80,10 +80,13 @@ Run `rrdu` inside your Rust workspace root without arguments:
 rrdu
 ```
 
-- Select individual projects or type `*` to inspect all projects.
-- Choose `*` to apply all non-breaking updates, or `*-force` to include breaking updates.
-- Use arrow keys or `/next` and `/prev` to paginate through large lists.
-- Type `/back` to step back in menus, or `/exit` to quit anytime.
+- Select individual projects or navigate through workspaces.
+- Use `↑` / `↓` arrow keys to highlight items.
+- Use `←` / `→` arrow keys to navigate between pages.
+- Press `Enter` to select an item.
+- Press `Backspace` to return to the previous view.
+- Press `u` to update the selected dependency.
+- Press `Esc` or `Ctrl+C` to quit anytime.
 
 ### 2. Configuration Initialization
 
