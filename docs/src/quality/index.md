@@ -6,7 +6,9 @@
 
 ## Standards Overview
 
-- **100% Safe Rust:** `#![forbid(unsafe_code)]` at the crate root.
+- **100% Safe Rust Core Logic:** `#![forbid(unsafe_code)]` enforced at the crate root (`src/main.rs` and `src/lib.rs`).
+- **Zero-Unsafe Headless Execution:** Completely eliminates unsafe TTY code and `ioctl` calls in `--headless` CI mode via `Table::force_no_tty`.
+- **Defensive Interactive Fallbacks:** Isolates terminal dependencies (`dialoguer`, `indicatif`) to interactive mode, mitigating dependency-level FFI risks with proactive TTY checks and signal trapping (`Ctrl+C` cleanup).
 - **Zero-Privilege:** Strictly user-space execution.
 - **Continuous Integration:** Every commit is validated across:
   - Formatting (`cargo fmt --check`)

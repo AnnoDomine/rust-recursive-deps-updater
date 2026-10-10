@@ -353,8 +353,8 @@ rust-recursive-deps-updater/
 
 ### Phase 4: Interactive CLI, Table Formatter & Headless Modes (`cli`)
 
-- [ ] Implement dual-mode logging infrastructure (`log` facade via `simple_logger`) routing to `./rrdu.log` (CLI mode, truncated on startup) or `stderr` (CI mode), replacing raw `println!` calls.
-- [ ] Filter out yanked versions from registry responses when selecting latest versions for display and updates.
+- [X] Implement dual-mode logging infrastructure (`log` facade via `simple_logger`) routing to `./rrdu.log` (CLI mode, truncated on startup) or `stderr` (CI mode), replacing raw `println!` calls.
+- [X] Filter out yanked versions from registry responses when selecting latest versions for display and updates.
 - [ ] Implement interactive banner, status presentation, and `indicatif` spinner.
 - [x] Implement table renderer in `src/cli/headless.rs` via `comfy-table-inline` (using `Table::force_no_tty` by default for zero unsafe).
 - [ ] Implement interactive pagination (`/next`, `/prev`, arrow keys, `updater.max-lines`).

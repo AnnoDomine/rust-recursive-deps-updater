@@ -1,7 +1,6 @@
 [book]
 authors = ["Dominic Seel"]
 language = "en"
-multilingual = false
 src = "src"
 title = "Rust Recursive Dependency Updater"
 description = "A fast, safe, zero-privilege recursive Cargo dependency updater for Rust workspaces and standalone crates."

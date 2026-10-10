@@ -18,9 +18,12 @@ This document serves as the single source of truth and directive for all AI agen
 ## 2. Core Architectural & Security Rules
 - **Zero-Privilege / Pure User-Space:**
   - The tool must never require or attempt to request elevated (root or administrator) privileges on any operating system (Linux or Windows).
-- **100% Safe Rust:**
-  - `#![forbid(unsafe_code)]` must remain active at the root of the binary crate (`src/main.rs`). Under no circumstances should `unsafe` blocks or unsafe traits be introduced.
-  - When utilizing terminal formatting libraries such as `comfy-table-inline` (custom edition of `comfy-table` with inline table support), `Table::force_no_tty` must be configured by default. This eliminates any underlying `unsafe` `libc`/`ioctl` calls (used for TTY terminal width detection) across all environments and preserves complete memory safety.
+- **100% Safe Rust Core & Execution Boundaries:**
+  - `#![forbid(unsafe_code)]` must remain active at the root of the binary crate (`src/main.rs`) and library crate (`src/lib.rs`). Under no circumstances should `unsafe` blocks, traits, or FFI be introduced into `rrdu`'s own codebase.
+  - **Headless Mode (`--headless`):** Completely eliminates unsafe code and low-level TTY interactions. It enforces `Table::force_no_tty` by default in `comfy-table-inline` to avoid all underlying `unsafe` `libc`/`ioctl` calls, ensuring 100% safe, non-interactive execution for CI and automated pipelines.
+  - **Interactive Mode:** Utilizes established terminal abstractions (`dialoguer`, `indicatif`) for rich interactive navigation, in-place line overwriting, and visual progress spinners. While these specific dependencies internally rely on low-level OS FFI/`unsafe` within their dependency trees (`console`, `libc`, `windows-sys`) to manage raw TTY modes, `rrdu` actively minimizes and mitigates potential issues through defensive fallbacks:
+    - **TTY Verification Fallback:** Proactively checks whether standard input/output is a genuine interactive terminal (`Term::is_term()`). If executed in non-TTY environments, pipes, or redirected streams, it safely aborts with an informative message pointing to `--headless` rather than risking low-level `ioctl` errors.
+    - **Signal & Cancellation Trapping:** Actively intercepts user interruptions (`Ctrl+C`, `SIGINT`) and cancellation commands (`/exit`, `/quit`) to restore terminal state (unhiding the cursor and resetting raw mode) and exit cleanly with code `2`, preventing corrupted terminal sessions.
 - **Path Traversal Defense:**
   - All paths from configuration files (`.rrduconfig`) or user inputs must be strictly validated.
   - Only the current directory (`./`) or internal subdirectories (e.g. `crates/...`) are permitted.

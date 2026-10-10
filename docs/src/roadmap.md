@@ -36,9 +36,10 @@ This document outlines the milestones, current progress, and upcoming engineerin
 ### Phase 4: Interactive CLI, Table Formatter & Headless Modes (`cli`)
 - [x] Split architecture into `rrdu` core library and thin CLI binary.
 - [x] Integration of `comfy-table-inline` (custom `comfy-table` edition with inline table support and `force_no_tty` safety).
-- [ ] Dual-mode logging (file-based `./rrdu.log` for interactive CLI, stderr for CI).
-- [ ] Interactive pagination, spinners, and navigation (`/next`, `/prev`, `/back`, `/exit`).
+- [x] Dual-mode logging (file-based `./rrdu.log` for interactive CLI, stderr for CI).
+- [x] Filter out yanked versions from registry responses.
 - [x] Headless CI check (`rrdu --headless`) with hierarchical audit tables.
+- [ ] Interactive pagination, spinners, and navigation (`/next`, `/prev`, `/back`, `/exit`).
 - [ ] Privacy-sanitized diagnostics report (`rrdu --report`).
 
 ### Phase 5: Comment-Preserving Manifest Updater (`updater`)
