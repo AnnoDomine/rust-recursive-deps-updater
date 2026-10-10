@@ -4,6 +4,15 @@ As the project may introduce breaking changes during early development, this doc
 
 ---
 
+## Version 0.0.4 to 0.0.5
+
+### Changes in `.rrduconfig`
+
+1. **Removed fields `updater.auto-update` and `updater.auto-scan`**
+   As `updater.auto-update` and `updater.auto-scan` are no more needed, we removed them from `.rrduconfig`. These are no breaking changes.
+
+---
+
 ## Version 0.0.3 to 0.0.4
 
 ### Changes in `.rrduconfig`
