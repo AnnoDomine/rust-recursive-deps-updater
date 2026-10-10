@@ -118,9 +118,9 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
   `A new version of rrdu is available (vX.Y.Z -> vA.B.C). Run 'rrdu self-update' to update.`
 - **Pagination & Navigation:**
 - Projects and crates are paginated based on `updater.max-lines` (default 50).
-- Navigation commands: `/next`, `/prev`, arrow keys (Up/Down/Left/Right).
-- Global navigation: `/back` (return to previous view), `/exit` or `/quit` (exit process with code 2).
-- Contextual Help: Typing `/?`, `/h`, or `/help` displays available commands and keyboard shortcuts.
+- Keyboard navigation: Arrow keys `↑` / `↓` for items, `←` / `→` for pages.
+- Action commands: `Enter` to select item, `Backspace` to return to previous view, `u` to trigger dependency update.
+- Process controls: `Esc` for clean exit (code 0), `Ctrl+C` for interrupt (code 2).
 - **Update Execution:**
 - `*`: Updates all compatible dependencies across the selected project (`[No migration needed]`).
 - `*-force`: Updates all dependencies including breaking versions (`[Need manual migration]`).
@@ -196,7 +196,7 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 - **Exit Codes:**
 - `0`: Success (up to date or update completed).
 - `1`: Failure / outdated dependencies during `--headless`.
-- `2`: User cancellation (`/exit`, Ctrl+C).
+- `2`: User cancellation (Ctrl+C).
 
 ### 3.3 Governance & Anti-Vibe-Coding Policy
 
@@ -281,7 +281,7 @@ rust-recursive-deps-updater/
 
 | Crate                 | Version Target    | Purpose              | Rationale                                                                              |
 | --------------------- | ----------------- | -------------------- | -------------------------------------------------------------------------------------- |
-| `clap`                | `~4.5` (derive)   | CLI Argument Parsing | Industry standard for robust CLI parsing (`init`, `--headless`)                       |
+| `clap`                | `~4.6` (derive)   | CLI Argument Parsing | Industry standard for robust CLI parsing (`init`, `--headless`)                       |
 | `serde`               | `~1.0` (derive)   | Data Serialization   | Struct serialization/deserialization                                                   |
 | `serde_json`          | `~1.0`            | JSON Parser & Cache  | Parsing crates.io Sparse Index (NDJSON), Web API, RustSec advisories, and cache storage |
 | `noyalib`             | `latest`          | YAML Parser          | Pure Rust YAML 1.2 with `#![forbid(unsafe_code)]`, maintained drop-in for `serde_yaml` |
@@ -290,12 +290,16 @@ rust-recursive-deps-updater/
 | `ureq`                | `latest` (rustls, json) | HTTP Client    | Synchronous, lightweight, memory-safe TLS without OpenSSL system dependencies          |
 | `colored`             | `latest`          | Terminal Colors      | Clean, intuitive ANSI color output for terminal interfaces                             |
 | `indicatif`           | `latest`          | Progress Indicators  | Smooth spinners and progress indicators during background network queries              |
+| `dialoguer`           | `latest`          | Terminal Abstraction | Console manipulation and keyboard event capturing for interactive navigation           |
+| `tokio`               | `latest`          | Async Runtime        | Multi-threaded runtime for parallel registry tasks and background progress tracking   |
+| `usize-conv`          | `latest`          | Numeric Conversions  | Safe conversions between numeric index types                                           |
 | `log`                 | `~0.4`            | Logging Facade       | Standard Rust logging facade for structured status codes and module diagnostics        |
 | `simple_logger`       | `~5.2` (timestamps, colors) | Logger Implementation | Lightweight logger implementation providing clean console timestamps and colored output |
 | `time`                | `~0.3` (macros)   | Timestamp Formatting | Precise timestamp formatting for diagnostics and logger output                         |
 | `thiserror`           | `latest`          | Error Handling       | Ergonomic typed domain error hierarchies without panics                                |
 | `comfy-table` (`comfy-table-inline`) | `8.0.2`    | Table Formatter      | Custom fork of comfy-table adding inline table support with automatic wrapping and `force_no_tty` safety |
 | `tempfile`            | `latest` _(dev)_  | Integration Testing  | Isolated temporary workspaces for manifest modification verification                   |
+| `criterion`           | `latest` _(dev)_  | Micro-Benchmarking   | Criterion micro-benchmarking suite for performance evaluation                          |
 
 ---
 
@@ -357,9 +361,8 @@ rust-recursive-deps-updater/
 - [X] Filter out yanked versions from registry responses when selecting latest versions for display and updates.
 - [ ] Implement interactive banner, status presentation, and `indicatif` spinner.
 - [x] Implement table renderer in `src/cli/headless.rs` via `comfy-table-inline` (using `Table::force_no_tty` by default for zero unsafe).
-- [ ] Implement interactive pagination (`/next`, `/prev`, arrow keys, `updater.max-lines`).
-- [ ] Implement interactive commands: `*`, `*-force`, crate selection, `/back`, `/exit`, `/quit`.
-- [ ] Implement in-app generic help (`/?`, `/h`, `/help`).
+- [ ] Implement interactive pagination (`←`, `→` arrow keys, `updater.max-lines`).
+- [ ] Implement interactive keyboard controls: `Enter`, `Backspace`, `u`, `Esc`.
 - [x] Implement headless mode `rrdu --headless` (nested formatted table output, exit code 0/1).
 - [ ] Implement `rrdu --report` diagnostic report generator with privacy sanitization.
 - [ ] Implement `rrdu -h` / `--help` CLI documentation display.

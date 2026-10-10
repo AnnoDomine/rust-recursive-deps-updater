@@ -17,7 +17,7 @@ rrdu
   - `*`: Apply all safe, non-breaking updates (`[No migration needed]`).
   - `*-force`: Apply all available updates including breaking major versions (`[Need manual migration]`).
   - `<index>` / `<name>`: Update an individual dependency interactively.
-- **Navigation:** Paginate using `/next`, `/prev`, arrow keys, `/back` to return to previous menus, or `/exit` to quit.
+- **Navigation:** Navigate items via `↑` / `↓`, flip pages via `←` / `→`, select with `Enter`, return to previous menu with `Backspace`, update with `u`, or exit cleanly with `Esc` or `Ctrl+C`.
 
 ---
 
