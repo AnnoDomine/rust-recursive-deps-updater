@@ -14,7 +14,7 @@ use crate::{
     simple_status,
     status_codes::Module,
 };
-use std::path::PathBuf;
+use std::{collections::BTreeMap, path::PathBuf};
 use std::{collections::HashMap, fmt::Display};
 use toml_edit::*;
 
@@ -159,6 +159,14 @@ impl DependencyEntry {
             DependencyVersion::Supported(_) => Ok(self.package()),
             _ => Err(self.get_dependency_row_valus(None)),
         }
+    }
+
+    /// Returns `true` if this dependency version specification is supported for updates.
+    ///
+    /// # Returns
+    /// `true` if the dependency uses a supported crates.io version requirement.
+    pub fn is_support(&self) -> bool {
+        matches!(self.version(), DependencyVersion::Supported(_))
     }
 
     /// Return the values needed for the DEPENDENCY row inside the CI and the CLI
@@ -468,7 +476,7 @@ impl Projects {
     fn define_deps(is_excuded: Boolean) -> ProjectDependency {
         match is_excuded {
             Boolean::True => ProjectDependency::ExcludedProject,
-            Boolean::False => ProjectDependency::Map(HashMap::new()),
+            Boolean::False => ProjectDependency::Map(BTreeMap::new()),
         }
     }
 
@@ -546,7 +554,7 @@ impl Projects {
     }
 
     fn map_deps(&self, section: DependencySection, doc: DocumentMut) -> DependencySectionMap {
-        let mut map: HashMap<String, DependencyEntry> = HashMap::new();
+        let mut map: BTreeMap<String, DependencyEntry> = BTreeMap::new();
         if let Some(t) = section.get_item(&doc) {
             match section.is_dependency_section() {
                 Some(key) => {
@@ -587,7 +595,7 @@ impl Projects {
         section: Option<String>,
         key: &str,
         item: Item,
-        collector: &mut HashMap<DependencySection, Option<DependencySectionMap>>,
+        collector: &mut BTreeMap<DependencySection, Option<DependencySectionMap>>,
     ) {
         match &item {
             Item::Table(t) => {
@@ -630,12 +638,12 @@ impl Projects {
             .iter()
             .map(|(k, v)| (k.to_string(), v.clone()))
             .collect::<Vec<(String, Item)>>();
-        let mut collector: HashMap<DependencySection, Option<DependencySectionMap>> =
-            HashMap::new();
+        let mut collector: BTreeMap<DependencySection, Option<DependencySectionMap>> =
+            BTreeMap::new();
         for (k_def, v_def) in k {
             self.search_sections(None, &k_def.to_string(), v_def.clone(), &mut collector);
         }
-        let mut mapped_deps: HashMap<DependencySection, DependencySectionMap> = HashMap::new();
+        let mut mapped_deps: BTreeMap<DependencySection, DependencySectionMap> = BTreeMap::new();
         for (sec, deps) in collector {
             if deps.is_none() {
                 mapped_deps.insert(sec.clone(), self.map_deps(sec, toml_doc.clone()));
@@ -677,6 +685,14 @@ impl Projects {
             }
         };
     }
+
+    /// Returns `true` if this project contains valid, supported dependencies.
+    ///
+    /// # Returns
+    /// `true` if at least one dependency section in the project has supported dependencies.
+    pub fn is_valid_project(&self) -> bool {
+        self.deps.is_valid_project()
+    }
 }
 
 /// Manages the collection of projects across the workspace and coordinates dependency version checks.
@@ -688,6 +704,8 @@ pub struct Workspace {
     pub collected_deps: HashMap<String, DependencyCollectionVersion>,
     /// Registry client containing fetched responses after network calls.
     pub client: Option<Client>,
+    /// The config store
+    pub config: Option<RrduConfig>,
 }
 
 impl Default for Workspace {
@@ -703,6 +721,7 @@ impl Workspace {
             projects: Vec::new(),
             collected_deps: HashMap::new(),
             client: None,
+            config: None,
         }
     }
 
@@ -724,6 +743,7 @@ impl Workspace {
         };
         match config {
             Ok(c) => {
+                self.config = Some(c.clone());
                 self.collect_projects(c)?;
             }
             Err(e) => return Err(FileError::ConfigError(e)),
@@ -799,7 +819,7 @@ impl Workspace {
     }
 
     /// Fetch the dependency versions from 'crates.io'
-    pub fn fetch_latest_versions(&mut self, is_headless: bool) {
+    pub async fn fetch_latest_versions(&mut self, is_headless: bool) {
         simple_status!(
             log::LevelFilter::Info,
             Module::WORKSPACE,
@@ -811,7 +831,7 @@ impl Workspace {
         );
         let mut client = Client::new();
         client.map_crates(self.collected_deps.clone());
-        client.start_calls(is_headless);
+        client.start_calls(is_headless).await;
         simple_status!(
             log::LevelFilter::Info,
             Module::WORKSPACE,
@@ -821,7 +841,7 @@ impl Workspace {
         if is_headless {
             client.map_latest_by_index(&mut self.collected_deps);
         } else {
-            client.map_latest_by_api(&mut self.collected_deps);
+            client.map_latest_by_api(&mut self.collected_deps, is_headless);
         }
         self.client = Some(client.clone());
     }
