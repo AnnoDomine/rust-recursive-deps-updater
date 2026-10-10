@@ -373,6 +373,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7cd812cc2bc1d69d4764bd80df88b4317eaef9e773c75226407d9bc0876b211c"
 
 [[package]]
+name = "dialoguer"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25f104b501bf2364e78d0d3974cbc774f738f5865306ed128e1e0d7499c0ad96"
+dependencies = [
+ "console",
+ "shell-words",
+ "tempfile",
+ "zeroize",
+]
+
+[[package]]
 name = "displaydoc"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -761,9 +773,9 @@ dependencies = [
 
 [[package]]
 name = "noyalib"
-version = "0.0.56"
+version = "0.0.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17cb8fe21481880d02e866e6678da0ce313735b659edf3dfd4beb7fdaca06e77"
+checksum = "70b8960f9f4668b69cae4ca71106c84d38ca1ea9f41a9acc20ce55473b967849"
 dependencies = [
  "hashbrown",
  "indexmap",
@@ -1017,6 +1029,7 @@ dependencies = [
  "colored",
  "comfy-table-inline",
  "criterion",
+ "dialoguer",
  "indicatif",
  "log",
  "noyalib",
@@ -1027,8 +1040,10 @@ dependencies = [
  "tempfile",
  "thiserror",
  "time",
+ "tokio",
  "toml_edit",
  "ureq",
+ "usize-conv",
 ]
 
 [[package]]
@@ -1170,6 +1185,12 @@ dependencies = [
  "serde_core",
  "zmij",
 ]
+
+[[package]]
+name = "shell-words"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc6fe69c597f9c37bfeeeeeb33da3530379845f10be461a66d16d03eca2ded77"
 
 [[package]]
 name = "shlex"
@@ -1344,6 +1365,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio"
+version = "1.53.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e95f91fcc7a621e8b030f6aa23c71fe9838ae2fb4d8118b75602a328f5144044"
+dependencies = [
+ "pin-project-lite",
+ "tokio-macros",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "2.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78773a2a397f451582ce068015985c33193cf6dea8b74d2a639fe457b2f07b0e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.6",
+]
+
+[[package]]
 name = "toml_datetime"
 version = "1.1.2+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1354,9 +1396,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.25.16+spec-1.1.0"
+version = "0.25.17+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88f38f3af8bf71841c67a990f4e2b52143b2d0a1a994c72513ff4c14977fc722"
+checksum = "e3641d5bbb5349a79e1020a242d251efbc546ad8048d133958323ce9c40a9c9c"
 dependencies = [
  "indexmap",
  "toml_datetime",
@@ -1367,9 +1409,9 @@ dependencies = [
 
 [[package]]
 name = "toml_parser"
-version = "1.1.4+spec-1.1.0"
+version = "1.1.5+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bed810ee007d8e7f9cf20b4774e7198142fa27186e0f805871da7f3c39eaf333"
+checksum = "baa693a8032d7e1cada7d0041e96126df243179ff061456783ac7f12bda4744c"
 dependencies = [
  "winnow",
 ]
@@ -1453,6 +1495,12 @@ dependencies = [
  "percent-encoding",
  "serde",
 ]
+
+[[package]]
+name = "usize-conv"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7abbdbde126cbb646edd00cc0b43c00fcea862b97ab48245e504f5f830c10711"
 
 [[package]]
 name = "utf8-zero"

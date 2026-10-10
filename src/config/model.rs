@@ -175,7 +175,7 @@ fn default_auto_scan() -> bool {
     true
 }
 fn default_max_lines() -> usize {
-    50
+    10
 }
 
 /// Returns the current running `rrdu` package version string.
@@ -255,7 +255,7 @@ mod test_rrdu_config {
         let mut updater = UpdaterConfig::default();
         assert_eq!(updater.auto_update, "none");
         assert!(updater.auto_scan);
-        assert_eq!(updater.max_lines, 50);
+        assert_eq!(updater.max_lines, 10);
         assert!(updater.exclude.is_empty());
 
         updater.exclude_project("crates/vendor".to_string());

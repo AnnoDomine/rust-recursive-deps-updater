@@ -25,17 +25,25 @@ path = "src/main.rs"
 clap = { version = "4.6.7", features = ["derive"] }
 colored = "3.1.1"
 comfy-table = { package = "comfy-table-inline", version = "8.0.2" }
+dialoguer = { version = "0.12.0", features = ["history", "completion"] }
 indicatif = "0.18.6"
 log = "0.4.34"
-noyalib = "0.0.56"
+noyalib = "0.0.57"
 semver = "1.0.28"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 simple_logger = { version = "5.2.0", features = ["timestamps", "colors"] }
 thiserror = "2.0.21"
 time = { version = "0.3.55", features = ["macros"] }
-toml_edit = "0.25.16"
+tokio = { version = "1.53.2", features = [
+    "rt-multi-thread",
+    "sync",
+    "time",
+    "macros",
+] }
+toml_edit = "0.25.17"
 ureq = { version = "3.4.2", features = ["rustls", "json"] }
+usize-conv = { version = "0.1.1", features = ["from_usize"] }
 
 [dev-dependencies]
 tempfile = "3.27.0"
