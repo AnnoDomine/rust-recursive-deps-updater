@@ -4,7 +4,7 @@
 //! section discriminants, registry client states, and cache responses.
 
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     fmt::{Debug, Display},
     time::SystemTime,
 };
@@ -66,7 +66,7 @@ impl Boolean {
 }
 
 /// Target dependency section classification.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum TargetDepKind {
     /// `[dependencies]`
     Normal,
@@ -77,7 +77,7 @@ pub enum TargetDepKind {
 }
 
 /// Rationale for excluding a dependency from analysis and updates.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub enum ExcludeReason {
     /// Excluded dependency section in project defined in `workspace.exclude.section` (e.g. `[dependencies.serde]`)
     ExcludedSection,
@@ -98,7 +98,7 @@ impl Display for ExcludeReason {
 }
 
 /// State of a collected dependency version from the registry.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub enum DependencyCollectionVersion {
     /// Check not fulfilled or pending.
     None,
@@ -111,10 +111,10 @@ pub enum DependencyCollectionVersion {
 }
 
 /// Representation of dependencies within a specific section.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub enum DependencySectionMap {
     /// Map of dependency names to parsed entries.
-    Map(HashMap<String, DependencyEntry>),
+    Map(BTreeMap<String, DependencyEntry>),
     /// Entire section was excluded via configuration.
     ExcludedSection,
     /// No dependencies found in this section.
@@ -153,13 +153,32 @@ impl DependencySectionMap {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Counts the number of supported crates.io dependencies in this section.
+    ///
+    /// # Returns
+    /// The number of supported dependencies.
+    pub fn count_supported_deps(&self) -> usize {
+        match self {
+            DependencySectionMap::Map(deps) => deps.iter().filter(|(_, e)| e.is_support()).count(),
+            _ => 0,
+        }
+    }
+
+    /// Returns `true` if this section contains at least one supported dependency.
+    ///
+    /// # Returns
+    /// `true` if the section is non-empty and has supported dependencies.
+    pub fn is_valid_section(&self) -> bool {
+        self.count_supported_deps() > 0
+    }
 }
 
 /// Map of all dependency sections in a project.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProjectDependency {
     /// Map of sections to their dependency entries.
-    Map(HashMap<DependencySection, DependencySectionMap>),
+    Map(BTreeMap<DependencySection, DependencySectionMap>),
     /// Project was entirely excluded via configuration.
     ExcludedProject,
 }
@@ -170,6 +189,17 @@ impl ProjectDependency {
         match self {
             ProjectDependency::ExcludedProject => 0,
             ProjectDependency::Map(sec) => sec.len(),
+        }
+    }
+
+    /// Counts the number of valid (non-empty, supported) dependency sections.
+    ///
+    /// # Returns
+    /// The number of sections with supported dependencies.
+    pub fn count_valid_sections(&self) -> usize {
+        match self {
+            ProjectDependency::ExcludedProject => 0,
+            ProjectDependency::Map(sec) => sec.iter().filter(|s| s.1.is_valid_section()).count(),
         }
     }
 
@@ -185,10 +215,29 @@ impl ProjectDependency {
             ProjectDependency::Map(sec) => sec.iter().map(|e| e.1.len()).sum(),
         }
     }
+
+    /// Counts the total number of supported crates.io dependencies across all sections.
+    ///
+    /// # Returns
+    /// The total count of supported dependency entries.
+    pub fn count_supported_total_values(&self) -> usize {
+        match self {
+            ProjectDependency::ExcludedProject => 0,
+            ProjectDependency::Map(sec) => sec.iter().map(|e| e.1.count_supported_deps()).sum(),
+        }
+    }
+
+    /// Returns `true` if this project contains at least one supported dependency.
+    ///
+    /// # Returns
+    /// `true` if the project has supported dependencies.
+    pub fn is_valid_project(&self) -> bool {
+        self.count_supported_total_values() > 0
+    }
 }
 
 /// Classification of a dependency's version specification in `Cargo.toml`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub enum DependencyVersion {
     /// Supported crates.io dependency version requirement (e.g. "1.0.0", "^3.1", "~0.4")
     Supported(String),
@@ -221,7 +270,7 @@ impl Display for DependencyVersion {
 }
 
 /// A parsed dependency entry representing one of the valid `Cargo.toml` declaration formats.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub enum DependencyEntry {
     /// Simple string version dependency.
     ///
@@ -257,7 +306,7 @@ pub enum DependencyEntry {
 /// ```toml
 /// colored = "3.1.1"
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub struct SimpleDependency {
     /// The TOML key identifying the dependency.
     pub toml_key: String,
@@ -271,7 +320,7 @@ pub struct SimpleDependency {
 /// ```toml
 /// web-sys = { version = "0.3", features = [...] }
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub struct InlineDependency {
     /// The TOML key identifying the dependency.
     pub toml_key: String,
@@ -292,7 +341,7 @@ pub struct InlineDependency {
 /// version = "3.0.0"
 /// package = "serde"
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub struct TableDependency {
     /// The TOML key identifying the dependency.
     pub toml_key: String,
@@ -308,7 +357,7 @@ pub struct TableDependency {
 pub type DependencyRow = (Boolean, Boolean, String);
 
 /// Identifies a dependency section within `Cargo.toml`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum DependencySection {
     /// `[dependencies]`
     Normal,
