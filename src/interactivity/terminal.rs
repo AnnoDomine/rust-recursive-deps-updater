@@ -2,7 +2,7 @@ use std::{io, process};
 
 use dialoguer::console::{Key, Term};
 
-use crate::constants::TERMINAL_MAX_WIDTH;
+use crate::constants::*;
 
 /// Represents the outcome of an interactive terminal navigation or selection action.
 pub enum TerminalReturn {
@@ -273,9 +273,11 @@ impl Terminal {
             for rendered_item in rendered_items {
                 term.write_line(&self.get_selection_line(rendered_item, highlighted))?;
             }
-            // Fill missing selectable lines, to align navigation over every view
-            for _ in 0..(self.max_items.saturating_sub(last_item)) {
-                term.write_line(&self.generate_item_fill_line())?;
+            // Fill missing selectable lines only when total items count is less than max_items
+            if items_len < self.max_items {
+                for _ in 0..(self.max_items.saturating_sub(items_len)) {
+                    term.write_line(&self.generate_item_fill_line())?;
+                }
             }
             term.write_line(&self.get_terminal_section_seperator())?;
             term.write_line(&self.generate_pagination_line(
@@ -326,27 +328,31 @@ impl Terminal {
                         }
                     }
                 }
-                // // Prev page
-                // Key::ArrowLeft => {}
-                // // Next page
-                // Key::ArrowRight => {
-                //     if highlighted < items_len - 1 {
-                //         let mut new_highlighted: usize = highlighted.saturating_add(self.max_items);
-                //         highlighted = new_highlighted;
-                //         // scroll down if we are over last item
-                //         if new_highlighted == last_item {
-                //             first_item = first_item.saturating_add(1);
-                //             last_item = last_item.saturating_add(1);
-                //         }
-                //     }
-                // }
-                // Go one view back
-                Key::Char('b') => {
-                    if self.is_input_included(SpecialInputs::ViewBack) {
-                        selection = TerminalReturn::PrevView;
-                        break;
+                // Prev page (←)
+                Key::ArrowLeft => {
+                    if first_item > 0 {
+                        let old_first = first_item;
+                        first_item = first_item.saturating_sub(self.max_items);
+                        let shift = old_first - first_item;
+                        last_item = (first_item + self.max_items).min(items_len);
+                        highlighted = highlighted
+                            .saturating_sub(shift)
+                            .clamp(first_item, last_item.saturating_sub(1));
                     }
                 }
+                // Next page (→)
+                Key::ArrowRight => {
+                    if last_item < items_len {
+                        let old_last = last_item;
+                        let new_last = (last_item + self.max_items).min(items_len);
+                        let shift = new_last - old_last;
+                        last_item = new_last;
+                        first_item = last_item.saturating_sub(self.max_items);
+                        highlighted =
+                            (highlighted + shift).clamp(first_item, last_item.saturating_sub(1));
+                    }
+                }
+                // Go one view back
                 Key::Backspace => {
                     if self.is_input_included(SpecialInputs::ViewBack) {
                         selection = TerminalReturn::PrevView;
@@ -375,5 +381,205 @@ impl Terminal {
             term.clear_screen()?;
         }
         Ok(selection)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_terminal_initialization() {
+        let term = Terminal::new(10);
+        assert_eq!(term.max_items, 10);
+        assert!(term.menu_path.is_empty());
+        assert!(term.available_inputs.is_empty());
+        assert!(term.instruction_line.is_empty());
+        assert!(term.input_lines.is_empty());
+    }
+
+    #[test]
+    fn test_path_manipulation() {
+        let mut term = Terminal::new(10);
+        term.set_path(vec!["Workspace".to_string(), "Crate A".to_string()]);
+        assert_eq!(
+            term.menu_path,
+            vec![
+                "RRDU Interactive Terminal".to_string(),
+                "Workspace".to_string(),
+                "Crate A".to_string(),
+            ]
+        );
+
+        term.add_path("Section");
+        assert_eq!(term.menu_path.len(), 4);
+        assert_eq!(term.menu_path[3], "Section");
+
+        term.remove_path("Workspace");
+        assert_eq!(
+            term.menu_path,
+            vec![
+                "RRDU Interactive Terminal".to_string(),
+                "Crate A".to_string(),
+                "Section".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_set_instruction() {
+        let mut term = Terminal::new(10);
+        term.set_instruction("Press Enter to select".to_string());
+        assert_eq!(term.instruction_line, "Press Enter to select");
+    }
+
+    #[test]
+    fn test_generate_input_lines() {
+        let mut term = Terminal::new(10);
+        term.generate_input_lines(vec![
+            SpecialInputs::PrevItem,
+            SpecialInputs::NextItem,
+            SpecialInputs::PrevPage,
+            SpecialInputs::NextPage,
+            SpecialInputs::Select,
+            SpecialInputs::Update,
+            SpecialInputs::ViewBack,
+        ]);
+        assert_eq!(term.input_lines.len(), 2);
+        assert!(term.input_lines[0].contains("↑ = Prev Item"));
+        assert!(term.input_lines[0].contains("↓ = Next Item"));
+        assert!(term.input_lines[0].contains("← = Prev Page"));
+        assert!(term.input_lines[0].contains("→ = Next Page"));
+        assert!(term.input_lines[1].contains("Backspace = Prev View"));
+        assert!(term.input_lines[1].contains("Key 'u' = Update"));
+        assert!(term.input_lines[1].contains("Enter/Return = Select"));
+        assert!(term.input_lines[1].contains("Esc = Exit"));
+    }
+
+    #[test]
+    fn test_prepare_paginated_input_line_boundaries() {
+        let mut term = Terminal::new(10);
+        term.set_available_input(vec![SpecialInputs::Select, SpecialInputs::ViewBack]);
+
+        // First page of multi-page list
+        term.prepare_paginated_input_line(0, 10, 0, 16);
+        assert!(!term.input_lines[0].contains("↑ = Prev Item"));
+        assert!(term.input_lines[0].contains("↓ = Next Item"));
+        assert!(!term.input_lines[0].contains("← = Prev Page"));
+        assert!(term.input_lines[0].contains("→ = Next Page"));
+
+        // Last page of multi-page list
+        term.prepare_paginated_input_line(6, 16, 15, 16);
+        assert!(term.input_lines[0].contains("↑ = Prev Item"));
+        assert!(!term.input_lines[0].contains("↓ = Next Item"));
+        assert!(term.input_lines[0].contains("← = Prev Page"));
+        assert!(!term.input_lines[0].contains("→ = Next Page"));
+
+        // Single item list
+        term.prepare_paginated_input_line(0, 1, 0, 1);
+        assert!(!term.input_lines[0].contains("↑ = Prev Item"));
+        assert!(!term.input_lines[0].contains("↓ = Next Item"));
+        assert!(!term.input_lines[0].contains("← = Prev Page"));
+        assert!(!term.input_lines[0].contains("→ = Next Page"));
+    }
+
+    #[test]
+    fn test_get_selection_line_formatting() {
+        let term = Terminal::new(10);
+        let item = (1, "serde = 1.0.197".to_string());
+
+        let highlighted_line = term.get_selection_line(&item, 0);
+        assert!(highlighted_line.starts_with("|-> 1 "));
+        assert!(highlighted_line.ends_with(" <-|"));
+
+        let unhighlighted_line = term.get_selection_line(&item, 1);
+        assert!(unhighlighted_line.starts_with("|   1 "));
+        assert!(unhighlighted_line.ends_with("   |"));
+    }
+
+    #[test]
+    fn test_section_separator_and_fill_line() {
+        let term = Terminal::new(10);
+        let sep = term.get_terminal_section_seperator();
+        assert_eq!(sep.len(), TERMINAL_MAX_WIDTH as usize);
+        assert!(sep.chars().all(|c| c == '-'));
+
+        let fill = term.generate_item_fill_line();
+        assert_eq!(fill.len(), TERMINAL_MAX_WIDTH as usize);
+        assert!(fill.starts_with('|'));
+        assert!(fill.ends_with('|'));
+    }
+
+    #[test]
+    fn test_sliding_window_pagination_math() {
+        let items_len: usize = 16;
+        let max_items: usize = 10;
+
+        let mut first_item: usize = 0;
+        let mut last_item: usize = max_items.min(items_len);
+        let mut highlighted: usize = 0;
+
+        assert_eq!(first_item, 0);
+        assert_eq!(last_item, 10);
+        assert_eq!(last_item - first_item, 10);
+
+        // Advance to next page (ArrowRight)
+        if last_item < items_len {
+            let old_last = last_item;
+            let new_last = (last_item + max_items).min(items_len);
+            let shift = new_last - old_last;
+            last_item = new_last;
+            first_item = last_item.saturating_sub(max_items);
+            highlighted = (highlighted + shift).clamp(first_item, last_item.saturating_sub(1));
+        }
+
+        // On the last page, full max_items must be displayed: items 6..16 (count = 10)
+        assert_eq!(last_item, 16);
+        assert_eq!(first_item, 6);
+        assert_eq!(last_item - first_item, 10);
+        assert_eq!(highlighted, 6);
+
+        // Fill lines condition: only when total items < max_items
+        let fill_needed = items_len < max_items;
+        assert!(!fill_needed);
+
+        // Rewind to previous page (ArrowLeft)
+        if first_item > 0 {
+            let old_first = first_item;
+            first_item = first_item.saturating_sub(max_items);
+            let shift = old_first - first_item;
+            last_item = (first_item + max_items).min(items_len);
+            highlighted = highlighted
+                .saturating_sub(shift)
+                .clamp(first_item, last_item.saturating_sub(1));
+        }
+
+        assert_eq!(first_item, 0);
+        assert_eq!(last_item, 10);
+        assert_eq!(last_item - first_item, 10);
+        assert_eq!(highlighted, 0);
+    }
+
+    #[test]
+    fn test_fill_lines_only_when_total_less_than_max_items() {
+        let max_items: usize = 10;
+
+        let small_items_len: usize = 4;
+        let mut small_lines_drawn = 0;
+        if small_items_len < max_items {
+            for _ in 0..(max_items.saturating_sub(small_items_len)) {
+                small_lines_drawn += 1;
+            }
+        }
+        assert_eq!(small_lines_drawn, 6);
+
+        let large_items_len: usize = 16;
+        let mut large_lines_drawn = 0;
+        if large_items_len < max_items {
+            for _ in 0..(max_items.saturating_sub(large_items_len)) {
+                large_lines_drawn += 1;
+            }
+        }
+        assert_eq!(large_lines_drawn, 0);
     }
 }
