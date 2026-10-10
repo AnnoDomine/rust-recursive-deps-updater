@@ -13,7 +13,10 @@ use log::LevelFilter;
 use simple_logger::SimpleLogger;
 
 use rrdu::{
-    cli::headless::Headless, config::rrdu_config::RrduConfig, simple_status, status_codes::Module,
+    cli::{headless::Headless, interactive::Interactive},
+    config::rrdu_config::RrduConfig,
+    simple_status,
+    status_codes::Module,
     workspace::project::Workspace,
 };
 
@@ -28,7 +31,8 @@ struct Args {
     headless: bool,
 }
 
-fn main() {
+#[tokio::main(flavor = "multi_thread", worker_threads = 3)]
+async fn main() {
     let args = Args::parse();
     // Init simple logger
     let _ = SimpleLogger::new()
@@ -61,12 +65,13 @@ fn main() {
     let _ = workspace.read_rrdu_config(None);
 
     if args.headless {
-        workspace.fetch_latest_versions(true);
+        workspace.fetch_latest_versions(true).await;
         Headless::new(workspace).headless_workspace_table();
         process::exit(0);
     }
 
-    workspace.fetch_latest_versions(false);
-    Headless::new(workspace).headless_workspace_table();
+    workspace.fetch_latest_versions(false).await;
+    let mut interactive = Interactive::new(&workspace);
+    interactive.render();
     process::exit(0);
 }
