@@ -359,10 +359,10 @@ rust-recursive-deps-updater/
 
 - [X] Implement dual-mode logging infrastructure (`log` facade via `simple_logger`) routing to `./rrdu.log` (CLI mode, truncated on startup) or `stderr` (CI mode), replacing raw `println!` calls.
 - [X] Filter out yanked versions from registry responses when selecting latest versions for display and updates.
-- [ ] Implement interactive banner, status presentation, and `indicatif` spinner.
+- [x] Implement interactive banner, status presentation, and `indicatif` spinner.
 - [x] Implement table renderer in `src/cli/headless.rs` via `comfy-table-inline` (using `Table::force_no_tty` by default for zero unsafe).
-- [ ] Implement interactive pagination (`←`, `→` arrow keys, `updater.max-lines`).
-- [ ] Implement interactive keyboard controls: `Enter`, `Backspace`, `u`, `Esc`.
+- [x] Implement interactive pagination (`←`, `→` arrow keys, `updater.max-lines`).
+- [x] Implement interactive keyboard controls: `Enter`, `Backspace`, `u`, `Esc`.
 - [x] Implement headless mode `rrdu --headless` (nested formatted table output, exit code 0/1).
 - [ ] Implement `rrdu --report` diagnostic report generator with privacy sanitization.
 - [ ] Implement `rrdu -h` / `--help` CLI documentation display.
