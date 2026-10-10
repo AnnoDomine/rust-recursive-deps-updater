@@ -31,17 +31,17 @@
 ## Features
 
 - **Workspace & Multi-Crate Discovery:** Automatically scans the root manifest, all workspace members, and standalone nested crates across the entire repository.
-- **Zero-Privilege & Sandboxed:** Runs purely in user space without requiring root or administrator rights. Built with `#![forbid(unsafe_code)]` and strict path-traversal prevention.
+- **Zero-Privilege & Sandboxed:** Runs purely in user space without requiring root or administrator rights. Built with `#![forbid(unsafe_code)]` at the core and strict path-traversal prevention. Headless CI mode is completely free of unsafe code, while interactive mode isolates terminal dependencies (`dialoguer`, `indicatif`) with defensive TTY checks and signal recovery fallbacks.
 - **Intelligent SemVer Classification:** Distinguishes between compatible updates (`[No migration needed]`) and breaking changes (`[Need manual migration]`) based on official Cargo SemVer conventions.
 - **Formatting-Preserving Manifest Updates:** Powered by `toml_edit` to ensure all comments, inline tables, whitespace, and formatting in `Cargo.toml` remain completely intact.
-- **Interactive CLI with Pagination:** Terminal interface with page-by-page scrolling (`/next`, `/prev`, arrow keys, configurable `max-lines`), visual spinners, `/back` navigation, and `/exit`.
+- **Interactive CLI with Pagination:** Terminal interface with in-place overwriting, page-by-page scrolling (`/next`, `/prev`, arrow keys, configurable `max-lines`), visual spinners, `/back` navigation, and clean `/exit` or `Ctrl+C` terminal restoration.
 - **Two-Tier Registry Strategy:** Ultra-fast, zero-latency execution in CI pipelines via the static crates.io Sparse Index (`https://index.crates.io/`). Rich metadata queries in interactive mode strictly throttled to 1 request/second adhering to the official crates.io Data Access Policy.
 - **RustSec Security Advisory Checks:** Integrates package vulnerability audits directly from `rustsec.org` to report known security patches, CVEs, and affected SemVer ranges.
 - **Persistent Tri-Cache:** Strongly-typed user-space cache (`~/.rrdu/cache/`) with TTL expiration checks (24h for crates.io index/API, 6h for security advisories) to eliminate redundant network calls across sessions.
 - **Structured Status & Diagnostic Logging:** Clean logging implementation via `log` and `simple_logger` with typed module status codes (`1YXX` - `6YXX`) and timestamped console output.
-- **Headless CI & GitHub Action:** Dedicated non-interactive audit execution (`--headless`) providing a clean tabular report for CI/CD gates.
+- **Headless CI & GitHub Action:** Dedicated non-interactive audit execution (`--headless`) providing a clean tabular report for CI/CD gates, running 100% free of unsafe TTY calls.
 - **Integrated Self-Update:** Update `rrdu` directly to the newest release with `rrdu --self-update`.
-- **Dynamic Terminal & CI Table Reporting:** Powered by `comfy-table-inline` (a custom release of `comfy-table` integrating native inline table support) with `Table::force_no_tty` by default to ensure 100% safe Rust and zero unsafe `ioctl` calls, while delivering beautiful auto-wrapping layouts, clean borders, and SemVer status highlights across both interactive and headless CI modes.
+- **Dynamic Terminal & CI Table Reporting:** Powered by `comfy-table-inline` (a custom release of `comfy-table` integrating native inline table support) with `Table::force_no_tty` by default in headless mode to guarantee zero unsafe `ioctl` calls, while delivering beautiful auto-wrapping layouts, clean borders, and SemVer status highlights across both interactive and headless CI modes.
 
 ---
 
@@ -192,7 +192,11 @@ Our definitions following a specified naming convention to remove confusion.
 Security and supply chain integrity are top priorities for `rrdu`:
 
 - **User-Space Only:** The tool operates entirely within the user's privilege boundary. It never requires or requests root/admin privileges.
-- **Forbidden Unsafe:** Built under `#![forbid(unsafe_code)]`.
+- **100% Safe Rust Core Logic:** The entire internal codebase is compiled under strict `#![forbid(unsafe_code)]`.
+- **Zero-Unsafe Headless Mode:** In `--headless` / CI mode, `rrdu` completely avoids any `unsafe` code paths or low-level TTY interactions, enforcing `Table::force_no_tty` to eliminate unsafe `libc`/`ioctl` calls across automated pipelines.
+- **Audited Interactive Mode with Protective Fallbacks:** Interactive terminal capabilities (arrow keys, spinners, in-place overwriting) rely on established terminal dependencies (`dialoguer`, `indicatif`). Because their underlying layers (`console`, `libc`, `windows-sys`) interact with OS TTY modes via FFI, `rrdu` actively minimizes potential risks by implementing defensive fallbacks:
+  - Validates interactive TTY attachments (`Term::is_term()`) to avoid raw-mode/`ioctl` failures in redirected streams or pipes.
+  - Implements signal trapping (`Ctrl+C` / cancellation) to reliably restore terminal state, reset cursor visibility, and exit with code `2`.
 - **Path Traversal Protection:** Relative paths are strictly validated to prevent directory traversal (`../`) attacks.
 - **No Dynamic Injection:** Operational settings are statically bound to configuration files.
 - **Secure Networking & Rate Limiting:** Strict TLS 1.2/1.3, compliant user-agent headers, strict 10s query timeouts, and 1-second request throttling adhering to crates.io data access policies.
