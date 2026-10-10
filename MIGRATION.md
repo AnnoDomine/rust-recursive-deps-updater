@@ -8,7 +8,7 @@ As the project may introduce breaking changes during early development, this doc
 
 ### Changes in `.rrduconfig`
 
-1. **Removed fields `updater.auto-update` and `updater.auto-scan`**
+1. **Removed fields `updater.auto-update` and `updater.auto-scan`:**
    As `updater.auto-update` and `updater.auto-scan` are no more needed, we removed them from `.rrduconfig`. These are no breaking changes.
 
 ---
@@ -17,7 +17,7 @@ As the project may introduce breaking changes during early development, this doc
 
 ### Changes in `.rrduconfig`
 
-1. **Change value of `updater.auto-update`**
+1. **Change value of `updater.auto-update`:**
    For better readability we changed the possible values of the `updater.auto-update` to `none`, `semver-safe` and `full`. As this key currently is not used, it is not breaking the application.
 
 ---
