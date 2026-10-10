@@ -360,8 +360,9 @@ rust-recursive-deps-updater/
 - [x] Implement interactive pagination (`←`, `→` arrow keys, `updater.max-lines`).
 - [x] Implement interactive keyboard controls: `Enter`, `Backspace`, `u`, `Esc`.
 - [x] Implement headless mode `rrdu --headless` (nested formatted table output, exit code 0/1).
-- [ ] Implement `rrdu --report` diagnostic report generator with privacy sanitization.
-- [ ] Implement `rrdu -h` / `--help` CLI documentation display.
+- [x] Implement `rrdu --report` diagnostic report generator with privacy sanitization.
+- [x] Implement `rrdu -h` / `--help` CLI documentation display. (Only needs to add help text as `///` comment above the argument. Command -h and --help are nativ included).
+- [ ] Integration of the first benchmarks.
 
 ### Phase 5: Comment-Preserving Manifest Updater (`updater`)
 
