@@ -37,8 +37,6 @@ updater:
   exclude:
     - target
     - vendor
-  auto-update: none # Options: `none`, `semver-safe`, or `full`
-  auto-scan: true # Options: true, false, or list of project names
   max-lines: 50 # Entries per page during interactive pagination
   version: 0.0.4 # Schema version
 ```
@@ -56,7 +54,5 @@ updater:
 
 ### `updater`
 - `exclude`: Directory names ignored during recursive filesystem traversal.
-- `auto-update`: Pre-selection strategy for interactive updates (`none`, `semver-safe`, or `full`).
-- `auto-scan`: Automatic scan on interactive CLI startup (`true`, `false`, or list of project names).
 - `max-lines`: Number of dependency rows per page during interactive CLI navigation.
 - `version`: Version of the schema for backward compatibility checks.

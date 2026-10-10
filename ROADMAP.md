@@ -57,10 +57,8 @@ workspace:
 updater:
   exclude:
     - excluded_project
-  auto-update: none # Options: `none`, `semver-safe`, or `full`
-  auto-scan: true # Options: true, false, or list of project names
   max-lines: 50 # Maximum entries per page during interactive pagination
-  version: 0.0.3 # Version where the config file was created
+  version: 0.0.4 # Version where the config file was created
 ```
 
 - `workspace.project`: Human-readable name of the project.
@@ -68,8 +66,6 @@ updater:
 - `workspace.exclude`: Fine-grained exclusion configuration with project-wide (project) and section-specific (section) scopes.
 - `workspace.sub-config`: Optional boolean flag indicating whether the sub-project provides its own `.rrduconfig` (default: `false`).
 - `updater.exclude`: Optional folder paths ignored during recursive discovery.
-- `updater.auto-update`: Automated update strategy (`none`, `semver-safe`, or `full`). Default: `"none"`.
-- `updater.auto-scan`: Automatic scan on interactive CLI startup (`true`, `false`, or list of project names). Default: `true`.
 - `updater.max-lines`: Maximum entries per page during interactive pagination. Default: `50`.
 - `updater.version`: Schema version of the `.rrduconfig` used for compatibility checks and legacy configuration detection.
 
