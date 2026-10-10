@@ -466,3 +466,72 @@ pub enum CacheType {
     /// RustSec vulnerability advisory cache.
     RustsecJsonResponse,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_boolean_logic() {
+        let t = Boolean::True;
+        let f = Boolean::False;
+
+        assert!(t.is_true());
+        assert!(!t.is_false());
+        assert_eq!(format!("{t}"), "True");
+
+        assert!(f.is_false());
+        assert!(!f.is_true());
+        assert_eq!(format!("{f}"), "False");
+    }
+
+    #[test]
+    fn test_exclude_reason_display() {
+        assert_eq!(
+            format!("{}", ExcludeReason::ExcludedInProject),
+            "Excluded project wide!"
+        );
+        assert_eq!(
+            format!("{}", ExcludeReason::ExcludedInSection),
+            "Excluded in section!"
+        );
+        assert_eq!(
+            format!("{}", ExcludeReason::ExcludedSection),
+            "Section excluded!"
+        );
+    }
+
+    #[test]
+    fn test_dependency_section_map_empty_and_excluded() {
+        let empty = DependencySectionMap::Empty;
+        assert_eq!(empty.len(), 0);
+        assert!(empty.is_empty());
+        assert_eq!(empty.count_supported_deps(), 0);
+        assert!(!empty.is_valid_section());
+        assert_eq!(format!("{empty}"), "No dependencies");
+
+        let excluded = DependencySectionMap::ExcludedSection;
+        assert_eq!(excluded.len(), 0);
+        assert!(excluded.is_empty());
+        assert_eq!(excluded.count_supported_deps(), 0);
+        assert!(!excluded.is_valid_section());
+        assert_eq!(format!("{excluded}"), "Section is excluded");
+    }
+
+    #[test]
+    fn test_project_dependency_excluded() {
+        let proj = ProjectDependency::ExcludedProject;
+        assert_eq!(proj.len(), 0);
+        assert!(proj.is_empty());
+        assert_eq!(proj.count_valid_sections(), 0);
+        assert_eq!(proj.total_values(), 0);
+        assert_eq!(proj.count_supported_total_values(), 0);
+        assert!(!proj.is_valid_project());
+    }
+
+    #[test]
+    fn test_sub_config_default() {
+        let default_config = SubConfig::default();
+        assert_eq!(default_config, SubConfig::None);
+    }
+}
