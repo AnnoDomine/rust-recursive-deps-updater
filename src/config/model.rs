@@ -153,12 +153,6 @@ pub struct UpdaterConfig {
     /// List of excluded projects from the workspace list.
     #[serde(default)]
     pub exclude: Vec<String>,
-    /// Automatic update mode (`none`, `semver-safe`, or `full`).
-    #[serde(default = "default_auto_update")]
-    pub auto_update: String,
-    /// Whether to automatically scan for outdated dependencies on start.
-    #[serde(default = "default_auto_scan")]
-    pub auto_scan: bool,
     /// Maximum line display limit for pagination in interactive CLI.
     #[serde(default = "default_max_lines")]
     pub max_lines: usize,
@@ -167,13 +161,6 @@ pub struct UpdaterConfig {
     pub version: Option<String>,
 }
 
-/// Default value for updater
-fn default_auto_update() -> String {
-    "none".to_string()
-}
-fn default_auto_scan() -> bool {
-    true
-}
 fn default_max_lines() -> usize {
     10
 }
@@ -188,8 +175,6 @@ impl Default for UpdaterConfig {
     fn default() -> Self {
         Self {
             exclude: Vec::new(),
-            auto_update: default_auto_update(),
-            auto_scan: default_auto_scan(),
             max_lines: default_max_lines(),
             version: Some(get_rrdu_version()),
         }
@@ -253,13 +238,48 @@ mod test_rrdu_config {
     #[test]
     fn test_updater_config_defaults_and_exclude() {
         let mut updater = UpdaterConfig::default();
-        assert_eq!(updater.auto_update, "none");
-        assert!(updater.auto_scan);
         assert_eq!(updater.max_lines, 10);
         assert!(updater.exclude.is_empty());
 
         updater.exclude_project("crates/vendor".to_string());
         assert_eq!(updater.exclude, vec!["crates/vendor"]);
+    }
+
+    #[test]
+    fn test_updater_config_ignores_legacy_keys() {
+        let yaml_str = r#"
+exclude:
+  - test_dir
+auto-update: none
+auto-scan: true
+max-lines: 25
+version: 0.0.4
+"#;
+        let parser_cfg = noyalib::ParserConfig::new();
+        let parsed: UpdaterConfig =
+            noyalib::from_reader_with_config(yaml_str.as_bytes(), &parser_cfg)
+                .expect("Failed to deserialize UpdaterConfig with legacy keys");
+        assert_eq!(parsed.max_lines, 25);
+        assert_eq!(parsed.exclude, vec!["test_dir"]);
+        assert_eq!(parsed.version, Some("0.0.4".to_string()));
+    }
+
+    #[test]
+    fn test_updater_config_ignores_legacy_list_auto_scan() {
+        let yaml_str = r#"
+exclude: []
+auto-update: semver-safe
+auto-scan:
+  - project_a
+  - project_b
+max-lines: 15
+version: 0.0.4
+"#;
+        let parser_cfg = noyalib::ParserConfig::new();
+        let parsed: UpdaterConfig =
+            noyalib::from_reader_with_config(yaml_str.as_bytes(), &parser_cfg)
+                .expect("Failed to deserialize UpdaterConfig with legacy list auto-scan");
+        assert_eq!(parsed.max_lines, 15);
     }
 
     #[test]
