@@ -42,12 +42,13 @@ This document outlines the milestones, current progress, and upcoming engineerin
 - [x] Interactive pagination, spinners, and keyboard navigation (arrow keys, Backspace, Esc).
 - [x] Privacy-sanitized diagnostics report (`rrdu --report`).
 - [x] CLI documentation and argument help display (`rrdu --help`).
-- [ ] Integration of the first benchmarks.
+- [x] Integration of the first benchmarks.
 
 ### Phase 5: Comment-Preserving Manifest Updater (`updater`)
 - [ ] In-place AST modifications via `toml_edit`.
 - [ ] Full preservation of comments, whitespace, indentation, and inline tables.
 - [ ] Workspace-level dependency updates (`[workspace.dependencies]`).
+- [ ] Re-enable interactive dependency selection (`SpecialInputs::Select` in `Views::Dependecy`) and wire key `u`.
 
 ### Phase 6: End-to-End Verification, Fixtures & Release v0.1.0
 - [ ] Integration test suite in `tests/` using `tempfile`.

@@ -57,7 +57,7 @@ workspace:
 updater:
   exclude:
     - excluded_project
-  max-lines: 50 # Maximum entries per page during interactive pagination
+  max-lines: 10 # Maximum entries per page during interactive pagination
   version: 0.0.4 # Version where the config file was created
 ```
 
@@ -362,7 +362,7 @@ rust-recursive-deps-updater/
 - [x] Implement headless mode `rrdu --headless` (nested formatted table output, exit code 0/1).
 - [x] Implement `rrdu --report` diagnostic report generator with privacy sanitization.
 - [x] Implement `rrdu -h` / `--help` CLI documentation display. (Only needs to add help text as `///` comment above the argument. Command -h and --help are nativ included).
-- [ ] Integration of the first benchmarks.
+- [x] Integration of the first benchmarks.
 
 ### Phase 5: Comment-Preserving Manifest Updater (`updater`)
 
@@ -372,6 +372,7 @@ rust-recursive-deps-updater/
 - [ ] Support central `[workspace.dependencies]` updates.
 - [ ] Ensure 100% preservation of comments, whitespaces, and indentation.
 - [ ] Unit and fixture tests verifying comment preservation.
+- [ ] Re-enable interactive dependency selection (`SpecialInputs::Select` in `Views::Dependecy`) and wire key `u` to the manifest updater.
 
 ### Phase 6: End-to-End Verification, Fixtures & Release v0.1.0
 

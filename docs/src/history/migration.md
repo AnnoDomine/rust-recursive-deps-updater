@@ -1,6 +1,6 @@
 # Migration Guide
 
-As `rrdu` evolves during early development, breaking changes to the `.rrduconfig` configuration schema are documented here with migration instructions.
+As the project may introduce breaking changes during early development, this document provides a guide for updating your configuration files between versions.
 
 ---
 
@@ -9,7 +9,7 @@ As `rrdu` evolves during early development, breaking changes to the `.rrduconfig
 ### Changes in `.rrduconfig`
 
 1. **Removed fields `updater.auto-update` and `updater.auto-scan`**
-   As `updater.auto-update` and `updater.auto-scan` are no more needed, we removed them from `.rrduconfig`.
+   As `updater.auto-update` and `updater.auto-scan` are no more needed, we removed them from `.rrduconfig`. These are no breaking changes.
 
 ---
 
@@ -17,8 +17,8 @@ As `rrdu` evolves during early development, breaking changes to the `.rrduconfig
 
 ### Changes in `.rrduconfig`
 
-1. **Enum value updates for `updater.auto-update`:**
-   Possible values are `none`, `semver-safe`, and `full`.
+1. **Change value of `updater.auto-update`**
+   For better readability we changed the possible values of the `updater.auto-update` to `none`, `semver-safe` and `full`. As this key currently is not used, it is not breaking the application.
 
 ---
 
@@ -27,14 +27,16 @@ As `rrdu` evolves during early development, breaking changes to the `.rrduconfig
 ### Changes in `.rrduconfig`
 
 1. **Renamed `toml` to `path`:**  
-   Sub-project `.rrduconfig` files are supported. Therefore, `toml` in the `workspace` list is renamed to `path`.
+   Starting from version 0.0.3, sub-project `.rrduconfig` files are supported. Therefore, the field `toml` in the `workspace` array has been renamed to `path`.
 2. **Added `sub-config` field (boolean):**
-   - `false` (default): Points directly to the directory / `Cargo.toml`.
-   - `true`: Points to a sub-project directory containing its own `.rrduconfig`.
+   - `false` (default): No dedicated `.rrduconfig` file for this sub-project. `path` points directly to the directory / `Cargo.toml`.
+   - `true`: `path` points to a sub-project directory containing its own `.rrduconfig`.
 3. **Changed schema of `exclude`:**
-   Changed to a granular schema differentiating between `project` and `section` exclusions.
+   `exclude` was before a simple list with project wide excluded dependencies. With the 0.0.3 we changed it to a more granular schema which differs between project wide exclusion and section specified exclusion to give more control.
 4. **Added `updater.version` field:**  
-   Specifies the configuration schema version for compatibility checks.
+   Specifies the configuration schema version for easier compatibility checks.
+
+> **Rationale:** These changes avoid unnecessary discoveries of projects in deep child folders and keep the root `.rrduconfig` concise.
 
 #### Configuration Diff
 
@@ -61,11 +63,12 @@ workspace:
   - project: Root
     path: ./
     exclude:
-      project:
+      project: # Excludes all named dependencies project wide
         - tokio
-      section:
-        dev-dependencies:
+      section: # Excludes all named dependencies from specific sections
+        dev-dependencies: # Only exclude named dependencies from [dev-dependencies] section
           - serde
+        dependencies.clap: [] # Exclude [dependencies.clap] section in total.
   - project: WorkspaceCrate
     path: crates/workspace_crate
     sub-config: true

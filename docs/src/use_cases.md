@@ -6,18 +6,21 @@
 
 ## 1. Interactive Developer Workflow
 
-Run `rrdu` in your repository root without flags:
+Launch `rrdu` in your repository root without arguments:
 
 ```sh
 rrdu
 ```
 
-- **Interactive Selection:** Inspect individual crates or select `*` to view all.
-- **Selective Upgrades:**
-  - `*`: Apply all safe, non-breaking updates (`[No migration needed]`).
-  - `*-force`: Apply all available updates including breaking major versions (`[Need manual migration]`).
-  - `<index>` / `<name>`: Update an individual dependency interactively.
-- **Navigation:** Navigate items via `↑` / `↓`, flip pages via `←` / `→`, select with `Enter`, return to previous menu with `Backspace`, update with `u`, or exit cleanly with `Esc` or `Ctrl+C`.
+- **Hierarchical Inspection:** Navigate through workspace projects, inspect dependency sections (`[dependencies]`, `[dev-dependencies]`, `[build-dependencies]`), and drill down into individual dependencies.
+- **Visual Status & Counts:** Each project displays section counts and dependency tallies (e.g., `Sections: 2 / 2 | Total dependencies: 14 / 16`), with SemVer update statuses highlighted (`Update required`, `Migration required`, `No action`).
+- **Sliding-Window Navigation:**
+  - `↑` / `↓`: Move the highlighted selection across rows.
+  - `←` / `→`: Flip pages smoothly (bounded by `updater.max-lines`).
+  - `Enter`: Select item and drill down into child view.
+  - `Backspace`: Return to the previous view level.
+  - `u`: Trigger update for the selected dependency.
+  - `Esc` / `Ctrl+C`: Exit cleanly while restoring terminal state.
 
 ---
 
@@ -152,21 +155,14 @@ Example output:
 - **Exit Code 1:** Outdated dependencies were discovered (or a validation error occurred).
 - Fails the CI pipeline if dependencies require updating, preventing dependency drift.
 
-## 3. Interactive Manifest Updates (User-Validated)
+## 3. Safe Manifest Updates (User-Validated)
 
-Dependency scans and cached API queries run automatically upon startup. To protect your codebase from unintended breaking changes, updates are never performed unattended:
+To protect your codebase from unintended breaking changes, dependency updates to `Cargo.toml` manifests are strictly interactive:
 
-```sh
-# Launch interactive mode to review and validate updates
-rrdu
-```
-
-- **User Validation Requirement:** Every version update must be reviewed and explicitly confirmed by the human user.
-- **Selective Upgrade Options:**
-  - `*`: Apply all safe, non-breaking upgrades (`[No migration needed]`).
-  - `*-force`: Apply all updates including major breaking changes (`[Need manual migration]`).
-  - `<index>` / `<crate>`: Select and update an individual dependency interactively.
-- **Format Preservation:** Updates are written in-place via `toml_edit`, preserving 100% of comments, whitespace, and formatting.
+- **Human Validation Requirement:** All version modifications must be reviewed and explicitly validated in interactive mode. Unattended automated writes are intentionally prohibited.
+- **In-Place Updates via Key `u`:** In the interactive dependency view, pressing key `u` initiates the update procedure for the highlighted dependency requirement.
+- **SemVer Classification Awareness:** The interface clearly distinguishes between compatible upgrades (`[No migration needed]`) and breaking bumps (`[Need manual migration]`), allowing developers to make informed upgrade choices.
+- **100% Format Preservation:** Modifications are performed in-place using `toml_edit`, preserving all comments, indentation, whitespace, and table formatting in `Cargo.toml`.
 
 ---
 
@@ -175,3 +171,16 @@ rrdu
 In repositories containing mixed workspace members and standalone nested crates:
 - `rrdu` identifies the root workspace members as well as independent sub-crates.
 - Central `[workspace.dependencies]` are detected and updated, and member crates inheriting from workspace dependencies (`dep = { workspace = true }`) remain properly linked.
+
+---
+
+## 5. Diagnostic Reporting (`--report`)
+
+Generate a privacy-sanitized system diagnostic report for issue reporting or troubleshooting:
+
+```sh
+rrdu --report
+```
+
+Output includes OS architecture, system CPU/memory details, Rust edition, `rrdu` version, and discovered workspaces, while automatically masking user home directories and sensitive tokens.
+

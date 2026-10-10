@@ -155,8 +155,8 @@ workspace:
 updater:
   exclude:
     - excluded_project
-  max-lines: 50 # Maximum entries per page during interactive pagination
-  version: 0.0.4 # Version where the config file was created
+  max-lines: 10 # Maximum entries per page during interactive pagination
+  version: 0.0.5 # Version where the config file was created
 ```
 
 ### Configuration Options
@@ -169,7 +169,7 @@ updater:
 | `workspace.exclude.section` | `mapping`      | Section-specific exclusions (e.g. `dev-dependencies`, table sections) _(optional)_      |
 | `workspace.sub-config`      | `bool`         | Set to `true` if the sub-project provides its own `.rrduconfig` _(default: false)_      |
 | `updater.exclude`           | `list`         | Folders to completely skip during recursive scans _(optional)_                          |
-| `updater.max-lines`         | `int`          | Maximum items displayed per page in interactive mode _(default: 50)_                    |
+| `updater.max-lines`         | `int`          | Maximum items displayed per page in interactive mode _(default: 10)_                    |
 | `updater.version`           | `string`       | Version of rrdu the config was created with, used for compatibility checks              |
 
 ---

@@ -1,10 +1,9 @@
 # Changelog
 
-All notable changes to `rust-recursive-deps-updater` (`rrdu`) are documented below.
+All notable changes to `rust-recursive-deps-updater` (`rrdu`) will be documented in this file.
 
-This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Conventional Commits](https://www.conventionalcommits.org/).
-
----
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [v0.0.4] - 2026-09-30
 
@@ -27,8 +26,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Sparse Index 3-Letter Path Resolution:** Corrected sparse index directory prefix resolution for 3-letter crate names (`3/<first-char>/<crate>`).
 - **Defensive Deserialization:** Made nullable and missing API and RustSec response fields optional (`Option<T>`) to prevent deserialization failures on edge cases.
 
----
-
 ## [v0.0.3] - 2026-09-27
 
 ### Added
@@ -44,8 +41,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Changed
 - Migrated `.rrduconfig` schema: `toml` renamed to `path`, introduced granular `exclude.project` and `exclude.section` mapping, added `updater.version`.
 
----
-
 ## [v0.0.2] - 2026-09-21
 
 ### Added
@@ -53,8 +48,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Path traversal defense rejecting parent references (`../`) and root paths (`/`).
 - Initial CLI configuration generator (`rrdu --init`).
 - Domain-specific typed error hierarchy (`ConfigError`).
-
----
 
 ## [v0.0.1] - 2026-09-20
 

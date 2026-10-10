@@ -37,8 +37,8 @@ updater:
   exclude:
     - target
     - vendor
-  max-lines: 50 # Entries per page during interactive pagination
-  version: 0.0.4 # Schema version
+  max-lines: 10 # Entries per page during interactive pagination
+  version: 0.0.5 # Schema version
 ```
 
 ---

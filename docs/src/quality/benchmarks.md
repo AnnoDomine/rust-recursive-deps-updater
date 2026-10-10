@@ -1,32 +1,83 @@
-# Benchmarks
+# Micro-Benchmarks & Performance
 
-Performance is a key objective of `rust-recursive-deps-updater`. Benchmarks ensure that discovery, manifest parsing, SemVer checks, and table rendering remain fast and regression-free.
+Performance, low latency, and zero overhead are fundamental design pillars of `rust-recursive-deps-updater` (`rrdu`). Because the tool interacts with large monorepos containing dozens or hundreds of crates, core algorithms must scale with strict predictability and minimal memory allocation.
+
+This chapter details the methodology, benchmark harness, and execution workloads implemented in Criterion across parametric sample sizes of **10, 20, 50, 100, 500, and 1,000** items.
 
 ---
 
 ## Tooling & Methodology
 
-Benchmarks are implemented using [`criterion`](https://crates.io/crates/criterion) under the `benches/` directory.
+Micro-benchmarks are implemented using [`criterion`](https://crates.io/crates/criterion) (v0.8.2) under `benches/rrdu_benchmarks.rs`.
 
-- **Statistical Analysis:** Criterion provides outlier detection, mean/median execution times, and standard deviation calculations.
-- **Flamegraphs & HTML Reports:** Generated under `target/criterion/report/index.html` during benchmark runs.
+- **100% Safe Execution:** The benchmark harness strictly enforces `#![forbid(unsafe_code)]` at its root.
+- **Statistical Rigor:** Criterion executes warmup iterations, statistical sample collection, outlier filtering, and distribution analysis (mean, median, standard deviation).
+- **Parametric Scaling:** Workloads are parameterized across uniform sample sizes of $N \in \{10, 20, 50, 100, 500, 1000\}$ to profile asymptotic time complexity ($O(1)$, $O(N)$).
+- **Zero External Network Dependencies:** All benchmarks operate on in-memory ASTs, mock registries, and synthesized dependency trees, guaranteeing repeatable, isolated measurements without network latency or external side effects.
 
 ---
 
-## Target Benchmark Scenarios
+## Core Benchmark Scenarios
 
-1. **CLI Table Formatting & Rendering:**
-   - Benchmarks `rrdu::cli::table` across small (5-10 rows), medium (50 rows), and large (500+ rows) dependency sets using `comfy-table-inline`.
-   - Evaluates dynamic column width calculation, alignment, and pagination slicing.
-2. **Workspace Discovery & Ignore Traversal:**
-   - Measures traversal throughput across deep directory trees with `.gitignore` and `.rrduignore` rules.
-3. **AST Manifest Manipulation (`toml_edit`):**
-   - Assesses in-place parsing and modification of complex multi-crate `Cargo.toml` files while preserving comments.
+The benchmark suite profiles four performance-critical subsystems:
+
+### 1. SemVer Comparison & Classification
+- **Target Functions:** `DependencyEntry::check_if_latest` and `DependencyEntry::get_dependency_row_valus` in `rrdu::workspace::project`.
+- **Workload:** Evaluates Cargo SemVer compatibility rules across synthetic dependency entries with realistic version bump patterns:
+  - Post-1.0 breaking updates (e.g. `1.2.0` vs. `2.0.0` -> `[Need manual migration]`)
+  - Post-1.0 non-breaking updates (e.g. `1.2.0` vs. `1.3.0` -> `[No migration needed]`)
+  - Pre-1.0 breaking updates (e.g. `0.2.1` vs. `0.3.0` -> `[Need manual migration]`)
+  - Pre-1.0 patch updates (e.g. `0.2.1` vs. `0.2.2` -> `[No migration needed]`)
+  - Up-to-date versions (e.g. `1.0.0` vs. `1.0.0`)
+- **Complexity:** $O(N)$ linear scaling relative to total scanned dependencies.
+
+### 2. Terminal Pagination & UI Line Formatting
+- **Target Functions:** `Terminal::prepare_paginated_input_line` and `Terminal::get_selection_line` in `rrdu::interactivity::terminal`.
+- **Workload:** Simulates interactive arrow-key navigation through large lists of $N$ items. Evaluates sliding-window page boundary calculations and row rendering for the active viewport (default: 10 rows).
+- **Complexity:** $O(1)$ constant-time viewport rendering, ensuring responsive navigation regardless of total repository crate count.
+
+### 3. YAML Configuration Roundtrip
+- **Target Functions:** `noyalib::to_string_with_config` (Serialization) and `noyalib::from_str_with_config` (Deserialization) with `RrduConfig`.
+- **Workload:** Evaluates in-memory encoding and decoding of complete `.rrduconfig` workspace structures containing $N$ project crate definitions and exclusion rules.
+- **Complexity:** $O(N)$ linear scaling for both serialization and deserialization.
+
+### 4. Dependency Tree Metrics & Filtering
+- **Target Functions:** `ProjectDependency::total_values`, `ProjectDependency::count_valid_sections`, and `ProjectDependency::count_supported_total_values` in `rrdu::enums`.
+- **Workload:** Evaluates multi-criteria dependency counting and section traversal across `dependencies`, `dev-dependencies`, and `build-dependencies`.
+- **Complexity:** $O(N)$ linear traversal with data locality and zero-allocation predicate matching.
 
 ---
 
 ## Running Benchmarks Locally
 
+### Smoke Test (Single Iteration)
+To verify compilation and functionality of the benchmark harness without running the full statistical sampling suite:
+
 ```sh
-cargo bench
+cargo bench --bench rrdu_benchmarks -- --test
 ```
+
+### Full Benchmark Execution
+To execute full Criterion statistical measurements:
+
+```sh
+cargo bench --bench rrdu_benchmarks
+```
+
+Criterion generates detailed HTML reports, line plots, and distribution charts under:
+```
+target/criterion/report/index.html
+```
+
+---
+
+## Interactive Benchmark Dashboard
+
+When viewed on GitHub Pages or built locally, the full interactive Criterion dashboard generated by the benchmark suite is embedded below:
+
+- [Open Interactive Benchmark Dashboard (Full Screen)](./criterion/report/index.html)
+
+### Embedded Dashboard
+
+<iframe src="./criterion/report/index.html" width="100%" style="border: none; background-color: inherit;"></iframe>
+

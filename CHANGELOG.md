@@ -5,6 +5,21 @@ All notable changes to `rust-recursive-deps-updater` (`rrdu`) will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [v0.0.5] - 2026-10-11
+
+### Added
+- **Interactive TUI & Sliding-Window Pagination:** Terminal interface with directional pagination (`←`/`→`), item navigation (`↑`/`↓`), line filler padding calculation, and keyboard navigation controls (`Enter`, `Backspace`, `u`, `Esc`).
+- **Headless Audit Mode (`--headless`):** Pure-safe non-interactive CI execution displaying formatted dependency audit tables with exit code `0` (clean) or `1` (updates pending/error).
+- **Diagnostics Reporting (`--report`):** Hardware and OS diagnostic markdown report using `sysinfo` with privacy sanitization of user home directory tokens.
+- **CLI Reference Help (`--help` / `-h`):** Detailed CLI argument help texts powered by Clap derive.
+- **Criterion Benchmark Suite:** Comprehensive performance benchmarks (`benches/rrdu_benchmarks.rs`) across sample sizes of 10, 20, 50, 100, 500, and 1000 items.
+- **CI Documentation & Benchmark Pipeline:** Automated GitHub Actions workflow (`pages.yml`) building mdBook and embedding interactive Criterion benchmark reports on GitHub Pages.
+- **Non-TTY Stream Protection:** Proactively detects non-interactive streams in interactive mode and exits with a guidance message pointing to `--headless`.
+
+### Changed
+- **Legacy Configuration Cleanup:** Removed `updater.auto-update` and `updater.auto-scan` from config models with backwards-compatible, non-breaking deserialization.
+- **Default Viewport Size:** Reduced default `updater.max-lines` from 50 to 10 entries for responsive terminal rendering.
+
 ## [v0.0.4] - 2026-09-30
 
 ### Added
