@@ -3,19 +3,22 @@
 //! Handles HTTPS requests to the crates.io sparse index, crates.io web API,
 //! and RustSec advisories with rate limiting, user-agent generation, and cache integration.
 
-use std::{collections::HashMap, thread::sleep};
+use std::{collections::HashMap, sync::Arc};
 
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
+use tokio::{sync::Mutex, task::JoinHandle};
 use ureq::{
     Body,
     http::{Response, Uri},
 };
+use usize_conv::ToU64;
 
 use crate::{
     constants::*,
     enums::*,
     errors::CollectionVersionError,
+    interactivity::progress::Progress,
     meta_status,
     registry::{
         cache_registry::CacheRegistry,
@@ -26,6 +29,9 @@ use crate::{
     simple_status,
     status_codes::Module,
 };
+
+/// Collection of asynchronous join handles representing ongoing crate registry query tasks.
+pub type CallResponseType = Vec<JoinHandle<(String, RegistryClientState, (bool, bool, bool))>>;
 
 /// Lightweight summary record of a crates.io crate version.
 pub struct CratesIOResponseItem {
@@ -38,7 +44,7 @@ pub struct CratesIOResponseItem {
 }
 
 /// Registry HTTP client managing connection pools, query execution, rate limits, and caches.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Client {
     /// Map tracking query state for each target crate.
     #[serde(default)]
@@ -49,7 +55,32 @@ pub struct Client {
     pub crates_io_api_cache: CacheRegistry<Box<CratesIOResponse>>,
     /// Cache registry for RustSec advisory responses.
     pub rustsec_json_cache: CacheRegistry<RustsecJsonResponse>,
+    /// Progress bars
+    #[serde(skip)]
+    pub progress_bars: HashMap<String, Progress>,
 }
+
+impl std::fmt::Debug for Client {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Client")
+            .field("crates", &self.crates)
+            .field("crates_io_index_cache", &self.crates_io_index_cache)
+            .field("crates_io_api_cache", &self.crates_io_api_cache)
+            .field("rustsec_json_cache", &self.rustsec_json_cache)
+            .finish()
+    }
+}
+
+impl PartialEq for Client {
+    fn eq(&self, other: &Self) -> bool {
+        self.crates == other.crates
+            && self.crates_io_index_cache == other.crates_io_index_cache
+            && self.crates_io_api_cache == other.crates_io_api_cache
+            && self.rustsec_json_cache == other.rustsec_json_cache
+    }
+}
+
+impl Eq for Client {}
 
 impl Default for CrateResponses {
     fn default() -> Self {
@@ -106,6 +137,7 @@ impl Client {
             crates_io_index_cache: CacheRegistry::new(CacheType::CratesIOIndex),
             crates_io_api_cache: CacheRegistry::new(CacheType::CratesIOApi),
             rustsec_json_cache: CacheRegistry::new(CacheType::RustsecJsonResponse),
+            progress_bars: HashMap::new(),
         }
     }
 
@@ -129,7 +161,11 @@ impl Client {
     pub fn map_latest_by_api(
         &self,
         collected_deps: &mut HashMap<String, DependencyCollectionVersion>,
+        is_headless: bool,
     ) {
+        let mut progress = Progress::new(is_headless);
+        let count: u64 = self.crates.len().to_u64();
+        progress.add(&"map".to_string(), count, "", None);
         for (dep, entry) in &self.crates {
             if let RegistryClientState::Succesed(c) = entry
                 && let Some(api) = &c.api
@@ -151,6 +187,7 @@ impl Client {
                     )),
                 );
             }
+            progress.increment_bar("map", "");
         }
     }
 
@@ -199,7 +236,7 @@ impl Client {
     }
 
     /// Executes registry queries sequentially for all uninitialized crates, respecting rate limits.
-    pub fn start_calls(&mut self, is_headless: bool) {
+    pub async fn start_calls(&mut self, is_headless: bool) {
         let uninitialised: Vec<String> = self
             .crates
             .iter()
@@ -215,56 +252,265 @@ impl Client {
                 uninitialised.len()
             )
         );
+
+        let mut calls: CallResponseType = Vec::new();
+        let mut progress = Progress::new(is_headless);
+
+        let item_len: u64 = uninitialised.len().to_u64();
+
+        progress.add_multi(uninitialised.clone(), 3, "Waiting...");
+        progress.add_multi(
+            vec![
+                "total_index".to_string(),
+                "total_api".to_string(),
+                "total_audit".to_string(),
+            ],
+            item_len,
+            "",
+        );
+        progress.add(&"cache_total".to_string(), 3, "", None);
+
+        let api_lock: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
+        let client_ref = Arc::new(self.clone());
+        let progress = Arc::new(std::sync::Mutex::new(progress));
+
         for k in uninitialised {
-            let mut response_map = CrateResponses::new();
+            let client = Arc::clone(&client_ref);
+            let progress = Arc::clone(&progress);
+            let api_lock = Arc::clone(&api_lock);
             self.set_crate_state(k.clone(), RegistryClientState::Loading);
-            simple_status!(
-                LevelFilter::Info,
-                Module::REGISTRYCLIENT,
-                100,
-                format!("Fetching metadata for '{k}'...")
-            );
-            match self.call_index(&mut response_map, &k) {
-                Err(e) => {
-                    meta_status!(
-                        LevelFilter::Error,
-                        Module::REGISTRYCLIENT,
-                        500,
-                        format!("Failed to query sparse index for '{k}'"),
-                        &e
-                    );
-                    self.set_crate_state(
+
+            calls.push(tokio::spawn(async move {
+                let progress = Arc::clone(&progress);
+                simple_status!(
+                    LevelFilter::Info,
+                    Module::REGISTRYCLIENT,
+                    100,
+                    format!("Fetching metadata for '{k}'...")
+                );
+                let mut response_map = CrateResponses::new();
+
+                // Add progress pars below crate progress bar.
+                let index_id = format!("{k}_index");
+                let api_id = format!("{k}_api");
+                let audit_id = format!("{k}_audit");
+                if let Ok(mut p) = progress.lock() {
+                    p.increment_bar(&k, "Waiting...");
+                };
+
+                if let Ok(mut p) = progress.lock() {
+                    p.increment_bar(&index_id, "Loading");
+                };
+                let c_name = k.clone();
+                let client_index = Arc::clone(&client);
+                let index_result =
+                    tokio::task::spawn_blocking(move || client_index.call_index(&c_name)).await;
+
+                let index_is_new = match index_result {
+                    Ok(Ok((res, is_new))) => {
+                        response_map.set_index(res);
+                        if let Ok(mut p) = progress.lock() {
+                            p.increment_bar(&k, "Index");
+                            p.finish_bar(&index_id);
+                        };
+                        is_new
+                    }
+                    Ok(Err(e)) => {
+                        meta_status!(
+                            LevelFilter::Error,
+                            Module::REGISTRYCLIENT,
+                            500,
+                            format!("Failed to query sparse index for '{k}'"),
+                            &e
+                        );
+                        if let Ok(mut p) = progress.lock() {
+                            p.finish_bar(&k);
+                            p.finish_bar(&index_id);
+                        };
+                        return (
+                            k,
+                            RegistryClientState::Errored(CollectionVersionError::Other(
+                                e.to_string(),
+                            )),
+                            (false, false, false),
+                        );
+                    }
+                    Err(join_err) => {
+                        meta_status!(
+                            LevelFilter::Error,
+                            Module::REGISTRYCLIENT,
+                            500,
+                            format!("Task join error for '{k}'"),
+                            &join_err
+                        );
+                        if let Ok(mut p) = progress.lock() {
+                            p.finish_bar(&k);
+                            p.finish_bar(&index_id);
+                        };
+                        return (
+                            k,
+                            RegistryClientState::Errored(CollectionVersionError::Other(
+                                join_err.to_string(),
+                            )),
+                            (false, false, false),
+                        );
+                    }
+                };
+                if let Ok(mut p) = progress.lock() {
+                    p.increment_bar("total_index", "");
+                };
+
+                if is_headless {
+                    if let Ok(mut p) = progress.lock() {
+                        p.finish_bar(&k);
+                    };
+                    return (
                         k,
-                        RegistryClientState::Errored(crate::errors::CollectionVersionError::Other(
-                            e.to_string(),
-                        )),
+                        RegistryClientState::Succesed(response_map),
+                        (index_is_new, false, false),
                     );
-                }
-                Ok(_) => {
-                    if !is_headless {
-                        if let Err(e) = self.call_api(&mut response_map, &k) {
-                            meta_status!(
-                                LevelFilter::Error,
-                                Module::REGISTRYCLIENT,
-                                500,
-                                format!("Failed to query API metadata for '{k}'"),
-                                &e
-                            );
-                            self.set_crate_state(
-                                k.clone(),
-                                RegistryClientState::Errored(
-                                    crate::errors::CollectionVersionError::Other(e.to_string()),
-                                ),
-                            );
-                        } else {
-                            let _ = self.call_audit(&mut response_map, &k);
-                            self.set_crate_state(k, RegistryClientState::Succesed(response_map));
-                        }
-                    } else {
-                        self.set_crate_state(k, RegistryClientState::Succesed(response_map));
+                };
+
+                let c_rustsec = k.clone();
+                let client_rustsec = Arc::clone(&client);
+                let progress_rustsec = Arc::clone(&progress);
+                let k_rustsec = k.clone();
+                let audit_id_clone = audit_id.clone();
+                let rustsec_task = async move {
+                    if let Ok(mut p) = progress_rustsec.lock() {
+                        p.add(&audit_id_clone, 1, "Loading", Some(c_rustsec.clone()));
+                    };
+                    let res =
+                        tokio::task::spawn_blocking(move || client_rustsec.call_audit(&c_rustsec))
+                            .await;
+                    if let Ok(mut p) = progress_rustsec.lock() {
+                        p.increment_bar("total_audit", "");
+                        p.increment_bar_with_assigned_state(&k_rustsec, "Audit");
+                        p.finish_bar(&audit_id_clone);
+                    }
+                    res
+                };
+
+                let c_api = k.clone();
+                let client_api = Arc::clone(&client);
+                let progress_api = Arc::clone(&progress);
+                let k_api = k.clone();
+                let api_id_clone = api_id.clone();
+                let api_lock = Arc::clone(&api_lock);
+
+                let api_task = async move {
+                    let guard = api_lock.lock().await;
+                    if let Ok(mut p) = progress_api.lock() {
+                        p.add(&api_id_clone, 1, "Loading", Some(k_api.clone()));
+                    };
+
+                    let res =
+                        tokio::task::spawn_blocking(move || client_api.call_api(&c_api)).await;
+
+                    if let Ok(Ok((_, is_new))) = res
+                        && is_new
+                    {
+                        tokio::time::sleep(TIME_BETWEEN_REQUESTS).await;
+                    };
+                    drop(guard);
+
+                    if let Ok(mut p) = progress_api.lock() {
+                        p.increment_bar("total_api", "");
+                        p.increment_bar_with_assigned_state(&k_api, "API");
+                        p.finish_bar(&api_id_clone);
+                    };
+                    res
+                };
+
+                let (audit_res, api_res) = tokio::join!(rustsec_task, api_task);
+
+                let audit_is_new = if let Ok(Ok((audit_data, is_new))) = audit_res {
+                    response_map.set_audit(audit_data);
+                    is_new
+                } else {
+                    false
+                };
+
+                let (state, api_is_new) = match api_res {
+                    Ok(Ok((api_data, is_new))) => {
+                        response_map.set_api(api_data);
+                        (RegistryClientState::Succesed(response_map), is_new)
+                    }
+                    Ok(Err(e)) => {
+                        meta_status!(
+                            LevelFilter::Error,
+                            Module::REGISTRYCLIENT,
+                            500,
+                            format!("Failed to query API for '{k}'"),
+                            &e
+                        );
+                        (
+                            RegistryClientState::Errored(CollectionVersionError::Other(
+                                e.to_string(),
+                            )),
+                            false,
+                        )
+                    }
+                    Err(join_err) => {
+                        meta_status!(
+                            LevelFilter::Error,
+                            Module::REGISTRYCLIENT,
+                            500,
+                            format!("Task join error for API '{k}'"),
+                            &join_err
+                        );
+                        (
+                            RegistryClientState::Errored(CollectionVersionError::Other(
+                                join_err.to_string(),
+                            )),
+                            false,
+                        )
+                    }
+                };
+
+                if let Ok(mut p) = progress.lock() {
+                    p.remove(&k);
+                    p.remove(&index_id);
+                    p.remove(&api_id);
+                    p.remove(&audit_id);
+                };
+                (k, state, (index_is_new, api_is_new, audit_is_new))
+            }));
+        }
+        for handle in calls {
+            if let Ok((crate_name, state, (is_new_index, is_new_api, is_new_audit))) = handle.await
+            {
+                if let RegistryClientState::Succesed(ref resp) = state {
+                    if is_new_index && let Some(index) = &resp.index {
+                        self.crates_io_index_cache
+                            .add_cache_entry(&crate_name, index.clone());
+                    }
+                    if is_new_audit && let Some(audit) = &resp.audit {
+                        self.rustsec_json_cache
+                            .add_cache_entry(&crate_name, audit.clone());
+                    }
+                    if is_new_api && let Some(api) = &resp.api {
+                        self.crates_io_api_cache
+                            .add_cache_entry(&crate_name, api.clone());
                     }
                 }
+                self.set_crate_state(crate_name, state);
             }
+        }
+
+        self.crates_io_index_cache.save_cache(None);
+        if let Ok(mut p) = progress.lock() {
+            p.increment_bar("cache_total", "Index");
+        };
+        if !is_headless {
+            self.crates_io_api_cache.save_cache(None);
+            if let Ok(mut p) = progress.lock() {
+                p.increment_bar_with_assigned_state("cache_total", "API");
+            };
+            self.rustsec_json_cache.save_cache(None);
+            if let Ok(mut p) = progress.lock() {
+                p.increment_bar_with_assigned_state("cache_total", "Audit");
+            };
         }
         simple_status!(
             LevelFilter::Info,
@@ -272,6 +518,9 @@ impl Client {
             200,
             "Completed registry queries for all crates."
         );
+        if let Ok(mut p) = progress.lock() {
+            p.clean();
+        };
     }
 
     /// Updates the query state for a specific crate.
@@ -380,7 +629,7 @@ impl Client {
     ///
     /// # Errors
     /// Returns [`ureq::Error`] if network fetch fails.
-    pub fn call_index(&mut self, map: &mut CrateResponses, c: &str) -> Result<(), ureq::Error> {
+    pub fn call_index(&self, c: &str) -> Result<(CratesIndexResponseParsed, bool), ureq::Error> {
         match self.crates_io_index_cache.get_cache_entry(c) {
             Some(cached) => {
                 simple_status!(
@@ -389,7 +638,7 @@ impl Client {
                     200,
                     format!("Index for '{c}' retrieved from cache")
                 );
-                map.set_index(cached);
+                Ok((cached, false))
             }
             None => {
                 if let Some(url) = self.parse_index_url(c) {
@@ -408,19 +657,12 @@ impl Client {
                         .body_mut()
                         .read_to_string()?;
                     let parsed = CratesIndexItem::parse_response(&body);
-                    map.set_index(parsed.clone());
-                    self.crates_io_index_cache.add_cache_entry(c, parsed);
-                    self.crates_io_index_cache.save_cache(None);
-                };
+                    Ok((parsed, true))
+                } else {
+                    Err(ureq::Error::BadUri(c.to_string()))
+                }
             }
-        };
-        simple_status!(
-            LevelFilter::Debug,
-            Module::REGISTRYCLIENT,
-            200,
-            format!("Index entry for '{c}' is available.")
-        );
-        Ok(())
+        }
     }
 
     /// Constructs the crates.io REST API URL for a crate.
@@ -447,7 +689,7 @@ impl Client {
     ///
     /// # Errors
     /// Returns [`ureq::Error`] if network fetch fails.
-    pub fn call_api(&mut self, map: &mut CrateResponses, c: &str) -> Result<(), ureq::Error> {
+    pub fn call_api(&self, c: &str) -> Result<(Box<CratesIOResponse>, bool), ureq::Error> {
         match self.crates_io_api_cache.get_cache_entry(c) {
             Some(cached) => {
                 simple_status!(
@@ -456,7 +698,7 @@ impl Client {
                     200,
                     format!("API metadata for '{c}' retrieved from cache")
                 );
-                map.set_api(cached);
+                Ok((cached, false))
             }
             None => {
                 if let Some(url) = self.parse_api_url(c) {
@@ -474,26 +716,12 @@ impl Client {
                         )?
                         .body_mut()
                         .read_json::<Box<CratesIOResponse>>()?;
-                    map.set_api(body.clone());
-                    self.crates_io_api_cache.add_cache_entry(c, body);
-                    self.crates_io_api_cache.save_cache(None);
-                };
-                simple_status!(
-                    LevelFilter::Debug,
-                    Module::REGISTRYCLIENT,
-                    100,
-                    "Rate limit cooldown: waiting 1s for next request."
-                );
-                sleep(TIME_BETWEEN_REQUESTS);
+                    Ok((body, true))
+                } else {
+                    Err(ureq::Error::BadUri(c.to_string()))
+                }
             }
         }
-        simple_status!(
-            LevelFilter::Debug,
-            Module::REGISTRYCLIENT,
-            200,
-            format!("API details for '{c}' fetched successfully.")
-        );
-        Ok(())
     }
 
     /// Constructs the RustSec vulnerability database URL for a crate.
@@ -521,7 +749,7 @@ impl Client {
     ///
     /// # Errors
     /// Returns [`ureq::Error`] on non-404 network failure.
-    pub fn call_audit(&mut self, map: &mut CrateResponses, c: &str) -> Result<(), ureq::Error> {
+    pub fn call_audit(&self, c: &str) -> Result<(RustsecJsonResponse, bool), ureq::Error> {
         match self.rustsec_json_cache.get_cache_entry(c) {
             Some(cached) => {
                 simple_status!(
@@ -530,7 +758,7 @@ impl Client {
                     200,
                     format!("RustSec audit reports for '{c}' retrieved from cache")
                 );
-                map.set_audit(cached);
+                Ok((cached, false))
             }
             None => {
                 if let Some(url) = self.parse_audit_url(c) {
@@ -562,29 +790,14 @@ impl Client {
                             );
                             Vec::new()
                         }
-                        Err(err) => return Err(err),
+                        Err(e) => return Err(e),
                     };
-
-                    map.set_audit(body.clone());
-                    self.rustsec_json_cache.add_cache_entry(c, body);
-                    self.rustsec_json_cache.save_cache(None);
-                };
-                simple_status!(
-                    LevelFilter::Debug,
-                    Module::REGISTRYCLIENT,
-                    100,
-                    "Rate limit cooldown: waiting 1s for next request."
-                );
-                sleep(TIME_BETWEEN_REQUESTS);
+                    Ok((body, false))
+                } else {
+                    Err(ureq::Error::BadUri(c.to_string()))
+                }
             }
         }
-        simple_status!(
-            LevelFilter::Debug,
-            Module::REGISTRYCLIENT,
-            200,
-            format!("RustSec audit reports for '{c}' parsed.")
-        );
-        Ok(())
     }
 }
 
