@@ -1,4 +1,4 @@
-use std::{collections::HashMap, process};
+use std::{collections::BTreeMap, process};
 
 use comfy_table::{
     ColumnConstraint::Absolute, ContentArrangement, InlineTable, Table, Width::Percentage,
@@ -34,7 +34,7 @@ impl Headless {
     /// * `sections` - Map of dependency sections and their respective entries.
     fn headless_project_dependency_section_table(
         &mut self,
-        sections: HashMap<DependencySection, DependencySectionMap>,
+        sections: BTreeMap<DependencySection, DependencySectionMap>,
     ) -> InlineTable {
         let mut section_table = InlineTable::new();
         section_table.set_header(["Section", "Dependencies"]);
