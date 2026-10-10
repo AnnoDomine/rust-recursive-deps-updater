@@ -6,6 +6,8 @@
 pub mod cli;
 /// Workspace configuration loading, generation, and validation.
 pub mod config;
+/// Interactivity system for interactive mode
+pub mod interactivity;
 /// Crates.io index/API communication, cache, and response models.
 pub mod registry;
 /// Workspace project discovery, TOML parsing, and dependency mapping.
