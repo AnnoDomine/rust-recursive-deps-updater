@@ -6,7 +6,7 @@
 
 #![forbid(unsafe_code)]
 
-use std::process;
+use std::{io::IsTerminal, process};
 
 use clap::Parser;
 use log::LevelFilter;
@@ -43,6 +43,16 @@ async fn main() {
             "[year]-[month]-[day] [hour]:[minute]:[second]"
         ))
         .init();
+
+    if !args.headless && (!std::io::stdin().is_terminal() || !std::io::stdout().is_terminal()) {
+        simple_status!(
+            LevelFilter::Error,
+            Module::INTERACTIVITY,
+            500,
+            "Interactive mode requires an interactive terminal (TTY) and cannot be piped. Use 'rrdu --headless' instead."
+        );
+        process::exit(1);
+    }
 
     simple_status!(
         LevelFilter::Trace,
