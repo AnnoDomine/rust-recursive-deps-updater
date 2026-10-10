@@ -6,34 +6,25 @@
 
 #![forbid(unsafe_code)]
 
-use std::{io::IsTerminal, process};
-
 use clap::Parser;
 use log::LevelFilter;
 use simple_logger::SimpleLogger;
+use std::{io::IsTerminal, process};
 
 use rrdu::{
+    args::Args,
     cli::{headless::Headless, interactive::Interactive},
     config::rrdu_config::RrduConfig,
+    report::report::Report,
     simple_status,
     status_codes::Module,
     workspace::project::Workspace,
 };
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    // Initalize an .rrduconfig file
-    #[arg(long, default_value_t = false)]
-    init: bool,
-    // Headless scan with audit table
-    #[arg(long, default_value_t = false)]
-    headless: bool,
-}
-
 #[tokio::main(flavor = "multi_thread", worker_threads = 3)]
 async fn main() {
     let args = Args::parse();
+
     // Init simple logger
     let _ = SimpleLogger::new()
         .with_level(LevelFilter::Off)
@@ -44,7 +35,11 @@ async fn main() {
         ))
         .init();
 
-    if !args.headless && (!std::io::stdin().is_terminal() || !std::io::stdout().is_terminal()) {
+    // Only allow pipe if not headless or report mode
+    if !args.headless
+        && !args.report
+        && (!std::io::stdin().is_terminal() || !std::io::stdout().is_terminal())
+    {
         simple_status!(
             LevelFilter::Error,
             Module::INTERACTIVITY,
@@ -61,26 +56,30 @@ async fn main() {
         "Start rust-recursive-deps-updater"
     );
 
+    // Report mode
+    if args.report {
+        Report::collect().await;
+        process::exit(0);
+    }
+
+    // Init mode
     if args.init {
         RrduConfig::create_config();
         process::exit(0);
     }
-    simple_status!(
-        LevelFilter::Info,
-        Module::CONFIGURATION,
-        100,
-        "This application is currently in an early stage and not ready for use!"
-    );
+
+    // Preload workspace
     let mut workspace = Workspace::new();
     let _ = workspace.read_rrdu_config(None);
+    workspace.fetch_latest_versions(args.headless).await;
 
+    // Headless mode
     if args.headless {
-        workspace.fetch_latest_versions(true).await;
-        Headless::new(workspace).headless_workspace_table();
+        Headless::new(workspace).headless_workspace_table(args.headless);
         process::exit(0);
     }
 
-    workspace.fetch_latest_versions(false).await;
+    // Interactive mode
     let mut interactive = Interactive::new(&workspace);
     interactive.render();
     process::exit(0);

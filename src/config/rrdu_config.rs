@@ -3,7 +3,10 @@
 //! Provides [`RrduConfig`] representing the root `.rrduconfig` YAML file,
 //! functions to check version compatibility, and methods for loading from or saving to disk.
 
-use std::path::{Path, PathBuf};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+};
 
 use noyalib::{ParserConfig, SerializerConfig};
 use serde::{Deserialize, Serialize};
@@ -34,6 +37,38 @@ impl Default for RrduConfig {
             workspace: default_root_project(),
             updater: UpdaterConfig::default(),
         }
+    }
+}
+
+impl Display for RrduConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut config_value: Vec<String> = Vec::new();
+        config_value.push("Workspaces:".to_string());
+        for p in &self.workspace {
+            config_value.push(format!("- Name: {:}", p.project));
+            let path = if p.path.chars().count() <= 6 {
+                p.path.clone()
+            } else {
+                format!(
+                    "  Path: {:}...{:}",
+                    p.path.chars().take(3).collect::<String>(),
+                    p.path
+                        .chars()
+                        .rev()
+                        .take(3)
+                        .collect::<String>()
+                        .chars()
+                        .rev()
+                        .collect::<String>()
+                )
+            };
+            config_value.push(format!("  Path: {path}"));
+            config_value.push(format!("  Is config: {:?}", p.sub_config));
+        }
+        config_value.push("-".repeat(10));
+        config_value.push("RRDU config:".to_string());
+        config_value.push(self.updater.to_string());
+        write!(f, "{:}", config_value.join("\n"))
     }
 }
 
