@@ -187,7 +187,8 @@ impl Interactive {
                 section_dependencies: _,
             } => vec![SpecialInputs::Select, SpecialInputs::ViewBack],
             Views::Dependecy { key: _, entry: _ } => {
-                vec![SpecialInputs::Select, SpecialInputs::ViewBack]
+                // TODO: Selecting dependency is currently not enabled as the update system is not integrated. Add `SpecialInputs::Select` when update logic is applied
+                vec![SpecialInputs::ViewBack]
             }
         }
     }
