@@ -10,9 +10,13 @@ pub mod config;
 pub mod interactivity;
 /// Crates.io index/API communication, cache, and response models.
 pub mod registry;
+/// Report storage
+pub mod report;
 /// Workspace project discovery, TOML parsing, and dependency mapping.
 pub mod workspace;
 
+/// Clap args
+pub mod args;
 /// Global application constants.
 pub mod constants;
 /// Domain enums and data types.

@@ -147,7 +147,7 @@ impl Headless {
     ///
     /// # Arguments
     /// * `w` - The workspace to display.
-    pub fn headless_workspace_table(&mut self) {
+    pub fn headless_workspace_table(&mut self, is_headless: bool) {
         let mut table = Table::new();
         table
             .force_no_tty()
@@ -158,7 +158,7 @@ impl Headless {
         let projects = self.headless_project_table();
         table.add_inline_table(projects);
         println!("{table}");
-        if self.found_outdated_dependency {
+        if self.found_outdated_dependency && is_headless {
             simple_status!(
                 log::LevelFilter::Error,
                 crate::status_codes::Module::CLI,

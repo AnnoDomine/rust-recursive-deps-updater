@@ -3,7 +3,7 @@
 //! Defines [`ProjectConfig`], [`ExcludeConfig`], and [`UpdaterConfig`] models matching
 //! the `.rrduconfig` YAML format, including path resolution and dependency exclusion helpers.
 
-use std::{collections::HashMap, env, path::PathBuf};
+use std::{collections::HashMap, env, fmt::Display, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -178,6 +178,21 @@ impl Default for UpdaterConfig {
             max_lines: default_max_lines(),
             version: Some(get_rrdu_version()),
         }
+    }
+}
+
+impl Display for UpdaterConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let version = match &self.version {
+            Some(v) => v.as_str(),
+            None => "Not defined",
+        };
+        write!(
+            f,
+            "- Excluded: {:}\n- Max lines in interactive: {:}\n- Config created in version: {version}",
+            self.exclude.join(", "),
+            self.max_lines
+        )
     }
 }
 
