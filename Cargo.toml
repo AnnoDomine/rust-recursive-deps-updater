@@ -1,6 +1,6 @@
 [package]
 name = "rust-recursive-deps-updater"
-version = "0.0.4"
+version = "0.0.5"
 edition = "2024"
 rust-version = "1.98.1"
 authors = ["Dominic Seel"]
@@ -31,7 +31,7 @@ log = "0.4.34"
 noyalib = "0.0.57"
 semver = "1.0.28"
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
+serde_json = "1.0.152"
 simple_logger = { version = "5.2.0", features = ["timestamps", "colors"] }
 sysinfo = "0.39.6"
 thiserror = "2.0.21"
@@ -50,6 +50,10 @@ usize-conv = { version = "0.1.1", features = ["from_usize"] }
 [dev-dependencies]
 tempfile = "3.27.0"
 criterion = "0.8.2"
+
+[[bench]]
+name = "rrdu_benchmarks"
+harness = false
 
 [profile.release]
 opt-level = 1

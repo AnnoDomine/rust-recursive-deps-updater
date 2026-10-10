@@ -1,4 +1,4 @@
-name: Deploy Documentation
+name: Deploy Benchmark and Documentation
 
 on:
   push:
@@ -17,11 +17,27 @@ concurrency:
 
 jobs:
   build:
-    name: Build Documentation (mdBook)
+    name: Build Documentation & Benchmarks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
+        with:
+          toolchain: stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2.7.7
+
+      - name: Create benchmark report (Criterion)
+        run: cargo bench --bench rrdu_benchmarks
+
+      - name: Copy changelog and migration to docs
+        run: |
+          cp CHANGELOG.md docs/src/history/changelog.md
+          cp MIGRATION.md docs/src/history/migration.md
 
       - name: Install mdBook
         uses: taiki-e/install-action@0f9abeadd7b421a211fafd01ed6005a20d796e1e # v2.66.4
@@ -30,6 +46,14 @@ jobs:
 
       - name: Build mdBook
         run: mdbook build docs
+
+      - name: Copy benchmark report to mdbook output
+        run: |
+          mkdir -p docs/book/quality/criterion
+          cp -r target/criterion/* docs/book/quality/criterion/
+
+      - name: Test if copy succeeded
+        run: test -f docs/book/quality/criterion/report/index.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
