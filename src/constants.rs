@@ -93,3 +93,9 @@ pub const DEPENDENCY_SECTION_PREFIX: [&str; 5] = [
 
 /// Terminal max width
 pub const TERMINAL_MAX_WIDTH: u16 = 150;
+
+/// Char 'u' for interactiv mode update
+pub const CHAR_U_LOWERCASED: char = 'u';
+
+/// Char 'U' for interactiv mode update
+pub const CHAR_U_UPPERCASED: char = 'U';
