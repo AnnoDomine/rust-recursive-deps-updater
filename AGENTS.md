@@ -69,6 +69,7 @@ This document serves as the single source of truth and directive for all AI agen
     1. **Allowed without watermarking:**
        - Assisting with resolving compiler, linter, or check errors (`cargo check`, `cargo clippy`, `cargo fmt`).
        - Drafting and maintaining documentation (Rustdoc `///` comments, Markdown specifications, guides, and the mdBook GitHub Pages documentation in `docs/`). The agent is explicitly authorized to autonomously create, complete, and update these documentation files to reflect the current release version and repository state.
+         - `changelog.md` and `migration.md` inside `docs\src\history\` are files which were overridden by the CI `pages.yaml` workflow to stay aligned and reduce maintaining time.
        - Small, targeted code integrations explicitly requested by the human developer, strictly up to a maximum length of **4 lines**.
        - Unit-tests even above the maximum length restriction.
        - Generating benchmarks.
