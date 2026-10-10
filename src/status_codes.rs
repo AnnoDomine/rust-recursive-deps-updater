@@ -39,6 +39,8 @@ pub enum Module {
     CACHE,
     /// CLI render and generating (`7YXX`).
     CLI,
+    /// Interactivity module for progress bars and interactiv CLI
+    INTERACTIVITY,
 }
 
 impl Display for Module {
@@ -51,6 +53,7 @@ impl Display for Module {
             Module::UPDATER => write!(f, "RRDU Updater Module"),
             Module::CACHE => write!(f, "RRDU Cache Module"),
             Module::CLI => write!(f, "RRDU CLI Module"),
+            Module::INTERACTIVITY => write!(f, "RRDU Interactivity Module"),
         }
     }
 }
@@ -66,6 +69,7 @@ impl Module {
             Module::UPDATER => 5u8,
             Module::CACHE => 6u8,
             Module::CLI => 7u8,
+            Module::INTERACTIVITY => 8u8,
         }
     }
 }

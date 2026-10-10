@@ -91,7 +91,7 @@ pub enum FileError {
 pub enum RrduErrorCodes {}
 
 /// Errors encountered while collecting dependency versions from `crates.io`.
-#[derive(Debug, Clone, PartialEq, Eq, Error, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Error, Serialize, Deserialize, Ord, PartialOrd)]
 pub enum CollectionVersionError {
     /// Dependency not found error
     #[error("Dependency could not found on 'crates.io'")]
