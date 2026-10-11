@@ -366,6 +366,10 @@ rust-recursive-deps-updater/
 
 ### Phase 5: Comment-Preserving Manifest Updater (`updater`)
 
+- [ ] Fix UI bug (ellipsis) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/8).
+- [ ] Fix config bug (max-lines) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/9).
+- [ ] Fix sub-config bug from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/10).
+- [ ] Fix UI bug (invalid deps) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/11).
 - [ ] Implement `src/updater/toml_writer.rs` using `toml_edit`.
 - [ ] Support standard string versions (`dep = "1.0"`).
 - [ ] Support inline table dependencies (`dep = { version = "1.0", features = [...] }`).
@@ -373,6 +377,7 @@ rust-recursive-deps-updater/
 - [ ] Ensure 100% preservation of comments, whitespaces, and indentation.
 - [ ] Unit and fixture tests verifying comment preservation.
 - [ ] Re-enable interactive dependency selection (`SpecialInputs::Select` in `Views::Dependecy`) and wire key `u` to the manifest updater.
+- [ ] Add ACCESSIBILITY.md
 
 ### Phase 6: End-to-End Verification, Fixtures & Release v0.1.0
 
@@ -388,3 +393,4 @@ rust-recursive-deps-updater/
 - [ ] Transition crates.io publishing to Trusted Publishing (OIDC) after the initial release.
 - [ ] Publish composite action to GitHub Marketplace.
 - [ ] Implement binary self-update (`rrdu self-update`) against GitHub Releases API.
+- [ ] Optional. Migrate `.rrduconfig` to `rrdu.toml`.
