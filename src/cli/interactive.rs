@@ -284,7 +284,7 @@ impl Interactive {
             format!(" {:}", self.format_string_with_ellipsis(&latest_value, 20));
         let update_version_information = format!(" {:} required", update_information.join(" & "));
         format!(
-            "{:} | {:.>20} | {:.>20} | {:.>30}",
+            "{:} | {:.>25} | {:.>25} | {:.>30}",
             entry_value,
             current_version_information,
             latest_version_information,
