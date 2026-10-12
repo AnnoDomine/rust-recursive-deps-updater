@@ -3,6 +3,8 @@ use std::fmt::Display;
 use crate::{
     enums::*,
     interactivity::terminal::{SpecialInputs, Terminal, TerminalReturn},
+    logger::status_codes::Module,
+    simple_status,
     workspace::project::{Projects, Workspace},
 };
 
@@ -139,6 +141,16 @@ pub struct Interactive {
     view_history: Vec<Views>,
 }
 
+impl Display for Interactive {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Workspace: {:#?}\nCurrent view: {:#?}\nView history: {:#?}",
+            self.workspace, self.current_view, self.view_history
+        )
+    }
+}
+
 impl Interactive {
     /// Initializes a new interactive CLI session starting at the root workspace view.
     ///
@@ -210,7 +222,7 @@ impl Interactive {
         if string.chars().count() > max_length {
             // We remove 4 chars. Else we have an UI break.
             let shorten: String = string.chars().take(max_length - 4).collect();
-            format!("{}...", shorten)
+            format!("{}...", shorten.trim_end())
         } else {
             string.to_string()
         }
@@ -280,9 +292,9 @@ impl Interactive {
             update_information.push("No action")
         }
         let current_version_information =
-            format!(" {:}", self.format_string_with_ellipsis(&message, 20));
+            format!(" {:}", self.format_string_with_ellipsis(&message, 23));
         let latest_version_information =
-            format!(" {:}", self.format_string_with_ellipsis(&latest_value, 20));
+            format!(" {:}", self.format_string_with_ellipsis(&latest_value, 23));
         let update_version_information = format!(" {:} required", update_information.join(" & "));
         format!(
             "{:} | {:.>25} | {:.>25} | {:.>30}",
@@ -336,6 +348,12 @@ impl Interactive {
     /// Enters alternate terminal screen buffer and runs the interactive menu navigation loop.
     pub fn render(&mut self) {
         print!("\x1b[?1049h");
+        simple_status!(
+            log::LevelFilter::Debug,
+            Module::INTERACTIVITY,
+            100,
+            format!("Render interactive CLI: {:#?}", &self.workspace.config)
+        );
         self.apply_view();
     }
 }
