@@ -471,8 +471,8 @@ pub enum CacheType {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_boolean_logic() {
+    #[tokio::test]
+    async fn test_boolean_logic() {
         let t = Boolean::True;
         let f = Boolean::False;
 
@@ -485,8 +485,8 @@ mod tests {
         assert_eq!(format!("{f}"), "False");
     }
 
-    #[test]
-    fn test_exclude_reason_display() {
+    #[tokio::test]
+    async fn test_exclude_reason_display() {
         assert_eq!(
             format!("{}", ExcludeReason::ExcludedInProject),
             "Excluded project wide!"
@@ -501,8 +501,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_dependency_section_map_empty_and_excluded() {
+    #[tokio::test]
+    async fn test_dependency_section_map_empty_and_excluded() {
         let empty = DependencySectionMap::Empty;
         assert_eq!(empty.len(), 0);
         assert!(empty.is_empty());
@@ -518,8 +518,8 @@ mod tests {
         assert_eq!(format!("{excluded}"), "Section is excluded");
     }
 
-    #[test]
-    fn test_project_dependency_excluded() {
+    #[tokio::test]
+    async fn test_project_dependency_excluded() {
         let proj = ProjectDependency::ExcludedProject;
         assert_eq!(proj.len(), 0);
         assert!(proj.is_empty());
@@ -529,8 +529,8 @@ mod tests {
         assert!(!proj.is_valid_project());
     }
 
-    #[test]
-    fn test_sub_config_default() {
+    #[tokio::test]
+    async fn test_sub_config_default() {
         let default_config = SubConfig::default();
         assert_eq!(default_config, SubConfig::None);
     }

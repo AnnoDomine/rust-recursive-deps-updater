@@ -19,6 +19,7 @@ use crate::{
     enums::*,
     errors::CollectionVersionError,
     interactivity::progress::Progress,
+    logger::status_codes::Module,
     meta_status,
     registry::{
         cache_registry::CacheRegistry,
@@ -27,7 +28,6 @@ use crate::{
         rust_sec_json_response_structs::RustsecJsonResponse,
     },
     simple_status,
-    status_codes::Module,
 };
 
 /// Collection of asynchronous join handles representing ongoing crate registry query tasks.
@@ -807,8 +807,8 @@ mod tests {
     use std::fs::File;
     use std::io::Read;
 
-    #[test]
-    fn test_url_generation() {
+    #[tokio::test]
+    async fn test_url_generation() {
         let client = Client::new();
 
         let test_cases = [
@@ -873,8 +873,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_fixtures_validation() {
+    #[tokio::test]
+    async fn test_fixtures_validation() {
         let crates = [
             "tokio",
             "serde",

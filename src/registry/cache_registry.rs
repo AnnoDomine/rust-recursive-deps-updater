@@ -15,7 +15,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{constants::*, enums::*, meta_status, simple_status, status_codes::Module};
+use crate::{constants::*, enums::*, logger::status_codes::Module, meta_status, simple_status};
 
 /// In-memory and persistent cache registry storing response items of type `T`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

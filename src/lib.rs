@@ -8,6 +8,8 @@ pub mod cli;
 pub mod config;
 /// Interactivity system for interactive mode
 pub mod interactivity;
+/// Structured status code definitions and logging macros.
+pub mod logger;
 /// Crates.io index/API communication, cache, and response models.
 pub mod registry;
 /// Report storage
@@ -25,5 +27,3 @@ pub mod enums;
 pub mod errors;
 /// Path and validation utility functions.
 pub mod functions;
-/// Structured status code definitions and logging macros.
-pub mod status_codes;

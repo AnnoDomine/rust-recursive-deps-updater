@@ -1,29 +1,33 @@
 use sysinfo::{CpuRefreshKind, RefreshKind, System};
 
 use crate::{
-    cli::headless::Headless, config::rrdu_config::RrduConfig, workspace::project::Workspace,
+    cli::headless::Headless, config::rrdu_config::RrduConfig, logger::logger::trace,
+    workspace::project::Workspace,
 };
 
 /// Diagnostic report generator inspecting system environment, configuration, and workspace status.
 pub struct Report;
 
 impl Report {
+    fn save_to_trace(entry: &str) {
+        trace().print_and_save_log(log::LevelFilter::Debug, entry);
+    }
     /// Collects and prints diagnostic report information including system specs, configuration, and workspace dependencies.
     pub async fn collect() {
-        println!("{:#^150}", " REPORT START ");
+        Self::save_to_trace(&format!("{:#^150}", " REPORT START "));
         Self::list_rrdu_config();
         Self::rrdu_infos();
-        println!("{:#^150}", " START SYSTEM ");
+        Self::save_to_trace(&format!("{:#^150}", " START SYSTEM "));
         Self::system();
         Self::load_workspace().await;
-        println!("{:#^150}", " END SYSTEM ");
+        Self::save_to_trace(&format!("{:#^150}", " END SYSTEM "));
         Self::system();
-        println!("{:#^150}", " REPORT END ");
+        Self::save_to_trace(&format!("{:#^150}", " REPORT END "));
     }
 
     fn system_information(label: &str, info: &str) {
         let info_string = format!(" {info}");
-        println!("{:.<100}{:.>50}", label, info_string)
+        Self::save_to_trace(&format!("{:.<100}{:.>50}", label, info_string));
     }
 
     fn system() {
@@ -52,24 +56,24 @@ impl Report {
     }
 
     fn rrdu_infos() {
-        println!("{:#^150}", " RRDU BINARY ");
+        Self::save_to_trace(&format!("{:#^150}", " RRDU BINARY "));
         let version = env!("CARGO_PKG_VERSION");
         Self::system_information("RRDU version: ", version);
     }
 
     fn list_rrdu_config() {
-        println!("{:#^150}", " RRDU CONFIG ");
+        Self::save_to_trace(&format!("{:#^150}", " RRDU CONFIG "));
         let config = RrduConfig::new();
-        println!("{config}");
+        Self::save_to_trace(&format!("{config}"));
     }
 
     async fn load_workspace() {
-        println!("{:#^150}", " RRDU WORKSPACE ");
+        Self::save_to_trace(&format!("{:#^150}", " RRDU WORKSPACE "));
         let mut workspace = Workspace::new();
         let _ = workspace.read_rrdu_config(None);
         // Fetch latest without progress bars
         workspace.fetch_latest_versions(true).await;
-        // Load the table outside headless becouse error code
+        // Load the table outside headless because error code
         Headless::new(workspace).headless_workspace_table(false);
     }
 }

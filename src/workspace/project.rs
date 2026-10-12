@@ -9,10 +9,10 @@ use crate::{
     enums::*,
     errors::*,
     functions::*,
+    logger::status_codes::Module,
     meta_status,
     registry::client::Client,
     simple_status,
-    status_codes::Module,
 };
 use std::{collections::BTreeMap, path::PathBuf};
 use std::{collections::HashMap, fmt::Display};
@@ -852,8 +852,8 @@ mod test_dependency_entry {
     use super::*;
     use toml_edit::DocumentMut;
 
-    #[test]
-    fn test_simple_dependency() {
+    #[tokio::test]
+    async fn test_simple_dependency() {
         let doc: DocumentMut = "colored = \"3.1.1\"".parse().expect("valid toml");
         let item = &doc["colored"];
         let entry = DependencyEntry::new("colored", item).expect("should parse");
@@ -865,8 +865,8 @@ mod test_dependency_entry {
         );
     }
 
-    #[test]
-    fn test_inline_dependencies() {
+    #[tokio::test]
+    async fn test_inline_dependencies() {
         let toml = r#"
     web-sys = { version = "0.3", features = ["Window"] }
     my_serde = { package = "serde", version = "1.0.190" }
@@ -889,8 +889,8 @@ mod test_dependency_entry {
         );
     }
 
-    #[test]
-    fn test_table_dependencies() {
+    #[tokio::test]
+    async fn test_table_dependencies() {
         let toml = r#"
     [dependencies.serde]
     version = "1.0.0"
@@ -917,8 +917,8 @@ mod test_dependency_entry {
         );
     }
 
-    #[test]
-    fn test_unsupported_keys() {
+    #[tokio::test]
+    async fn test_unsupported_keys() {
         let toml = r#"
     git_dep = { git = "https://github.com/foo/bar" }
     path_dep = { path = "../local_lib" }
@@ -964,8 +964,8 @@ mod test_dependency_entry {
         );
     }
 
-    #[test]
-    fn test_missing_required_and_unsupported_value() {
+    #[tokio::test]
+    async fn test_missing_required_and_unsupported_value() {
         let toml = r#"
     missing_ver = { features = ["Window"] }
     invalid_val = { version = 123 }
@@ -985,8 +985,8 @@ mod test_dependency_entry {
         );
     }
 
-    #[test]
-    fn test_check_if_latest_semver_rules() {
+    #[tokio::test]
+    async fn test_check_if_latest_semver_rules() {
         let make_dep = |ver: &str| -> DependencyEntry {
             DependencyEntry::Simple(SimpleDependency {
                 toml_key: "test".to_string(),
@@ -1059,8 +1059,8 @@ mod test_dependency_entry {
         );
     }
 
-    #[test]
-    fn test_get_dependency_row_valus() {
+    #[tokio::test]
+    async fn test_get_dependency_row_valus() {
         let make_dep = |ver: DependencyVersion| -> DependencyEntry {
             DependencyEntry::Simple(SimpleDependency {
                 toml_key: "test".to_string(),

@@ -15,9 +15,9 @@ use rrdu::{
     args::Args,
     cli::{headless::Headless, interactive::Interactive},
     config::rrdu_config::RrduConfig,
+    logger::status_codes::Module,
     report::report::Report,
     simple_status,
-    status_codes::Module,
     workspace::project::Workspace,
 };
 

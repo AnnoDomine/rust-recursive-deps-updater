@@ -36,13 +36,7 @@ simple_logger = { version = "5.2.0", features = ["timestamps", "colors"] }
 sysinfo = "0.39.6"
 thiserror = "2.0.21"
 time = { version = "0.3.55", features = ["macros"] }
-tokio = { version = "1.53.2", features = [
-    "rt-multi-thread",
-    "sync",
-    "time",
-    "macros",
-    "fs"
-] }
+tokio = { version = "1.53.2", features = ["full"] }
 toml_edit = "0.25.17"
 ureq = { version = "3.4.2", features = ["rustls", "json"] }
 usize-conv = { version = "0.1.1", features = ["from_usize"] }

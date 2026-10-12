@@ -6,7 +6,8 @@ use comfy_table::{
 };
 
 use crate::{
-    constants::TERMINAL_MAX_WIDTH, enums::*, simple_status, workspace::project::Workspace,
+    constants::TERMINAL_MAX_WIDTH, enums::*, logger::logger::trace, simple_status,
+    workspace::project::Workspace,
 };
 
 /// Headless rendering helpers for CLI and workspace outputs.
@@ -157,11 +158,11 @@ impl Headless {
             .set_header(["rrdu workspace dependency audit"]);
         let projects = self.headless_project_table();
         table.add_inline_table(projects);
-        println!("{table}");
+        trace().print_and_save_log(log::LevelFilter::Trace, &table.to_string());
         if self.found_outdated_dependency && is_headless {
             simple_status!(
                 log::LevelFilter::Error,
-                crate::status_codes::Module::CLI,
+                crate::logger::status_codes::Module::CLI,
                 400,
                 "Found outdated dependencies. Please Check the audit!"
             );

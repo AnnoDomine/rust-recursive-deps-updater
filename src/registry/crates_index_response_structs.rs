@@ -40,7 +40,7 @@ impl CratesIndexItem {
             Err(serde_json_error) => {
                 meta_status!(
                     log::LevelFilter::Error,
-                    crate::status_codes::Module::REGISTRYCLIENT,
+                    crate::logger::status_codes::Module::REGISTRYCLIENT,
                     400,
                     "Error while parsing index item.".to_string(),
                     serde_json_error

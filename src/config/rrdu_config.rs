@@ -12,8 +12,8 @@ use noyalib::{ParserConfig, SerializerConfig};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    config::model::*, constants::*, enums::*, errors::*, functions::*, meta_status, simple_status,
-    status_codes::Module, workspace::discovery::Discovery,
+    config::model::*, constants::*, enums::*, errors::*, functions::*,
+    logger::status_codes::Module, meta_status, simple_status, workspace::discovery::Discovery,
 };
 
 /// Root configuration representation corresponding to `.rrduconfig`.
@@ -263,8 +263,8 @@ impl RrduConfig {
 mod test_rrdu_config {
     use super::*;
 
-    #[test]
-    fn test_rrdu_config_add_workspace() {
+    #[tokio::test]
+    async fn test_rrdu_config_add_workspace() {
         let mut config = RrduConfig::default();
         assert!(config.workspace.is_empty());
 
@@ -274,8 +274,8 @@ mod test_rrdu_config {
         assert_eq!(config.workspace[0].path, "./");
     }
 
-    #[test]
-    fn test_yaml_in_memory_roundtrip() {
+    #[tokio::test]
+    async fn test_yaml_in_memory_roundtrip() {
         let mut original = RrduConfig::default();
         original.add_workspace(ProjectConfig::new("Root".to_string(), "./".to_string()));
         original.updater.exclude_project("test_dir".to_string());

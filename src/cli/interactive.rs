@@ -182,12 +182,13 @@ impl Interactive {
         match &self.current_view {
             Views::Workspace(_) => vec![SpecialInputs::Select],
             Views::Project(_) => vec![SpecialInputs::Select, SpecialInputs::ViewBack],
+            // TODO: Selecting dependency is currently not enabled as the update system is not integrated. Add `SpecialInputs::Select` when update logic is applied
             Views::Section {
                 section: _,
                 section_dependencies: _,
-            } => vec![SpecialInputs::Select, SpecialInputs::ViewBack],
+            } => vec![SpecialInputs::ViewBack],
+            // TODO: Selecting dependency is currently not enabled as the update system is not integrated. Add `SpecialInputs::Select` when update logic is applied
             Views::Dependecy { key: _, entry: _ } => {
-                // TODO: Selecting dependency is currently not enabled as the update system is not integrated. Add `SpecialInputs::Select` when update logic is applied
                 vec![SpecialInputs::ViewBack]
             }
         }
