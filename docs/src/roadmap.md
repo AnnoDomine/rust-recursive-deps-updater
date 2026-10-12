@@ -28,7 +28,7 @@ This document outlines the milestones, current progress, and upcoming engineerin
 
 ### Phase 3: crates.io Registry Client, Security & SemVer Engine (`registry`)
 - [x] Sub-config boundaries for nested `.rrduconfig` manifests (`sub-config: true`).
-- [x] Hierarchical module status codes (`1YXX` - `7YXX`) and structured logging.
+- [x] Hierarchical module status codes (`1YXX` - `8YXX`) and structured logging.
 - [x] Persistent tri-cache (`~/.rrdu/cache/`) with TTL validation (Index, Web API, RustSec).
 - [x] Two-tier querying: fast sparse index queries for CI and throttled Web API queries (1 req/s) for interactive mode.
 - [x] Cargo SemVer comparison engine with pre-1.0 and post-1.0 breaking change detection.
@@ -36,7 +36,7 @@ This document outlines the milestones, current progress, and upcoming engineerin
 ### Phase 4: Interactive CLI, Table Formatter & Headless Modes (`cli`)
 - [x] Split architecture into `rrdu` core library and thin CLI binary.
 - [x] Integration of `comfy-table-inline` (custom `comfy-table` edition with inline table support and `force_no_tty` safety).
-- [x] Dual-mode logging (file-based `./rrdu.log` for interactive CLI, stderr for CI).
+- [x] Asynchronous trace file logging (`audit/rrdu.log`) with Tokio MPSC queuing, 1 MB splitting, and timestamped archive rotation (`rrdu_yyyy_mm_dd_hh_mm_ss_ms.log`).
 - [x] Filter out yanked versions from registry responses.
 - [x] Headless CI check (`rrdu --headless`) with hierarchical audit tables.
 - [x] Interactive pagination, spinners, and keyboard navigation (arrow keys, Backspace, Esc).
