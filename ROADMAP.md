@@ -375,7 +375,7 @@ rust-recursive-deps-updater/
 
 - [ ] Fix UI bug (ellipsis) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/8).
 - [ ] Fix config bug (max-lines) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/9).
-- [ ] Fix sub-config bug from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/10).
+- [x] Fix sub-config bug from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/10).
 - [ ] Fix UI bug (invalid deps) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/11).
 - [ ] Fix Terminal bug (blocking lines) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/13).
 - [ ] Implement `src/updater/toml_writer.rs` using `toml_edit`.
