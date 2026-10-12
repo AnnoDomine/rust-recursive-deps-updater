@@ -373,10 +373,10 @@ rust-recursive-deps-updater/
 
 ### Phase 5: Comment-Preserving Manifest Updater (`updater`)
 
-- [ ] Fix UI bug (ellipsis) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/8).
+- [x] Fix UI bug (ellipsis) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/8).
 - [ ] Fix config bug (max-lines) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/9).
 - [x] Fix sub-config bug from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/10).
-- [ ] Fix UI bug (invalid deps) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/11).
+- [x] Fix UI bug (invalid deps) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/11).
 - [ ] Fix Terminal bug (blocking lines) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/13).
 - [ ] Implement `src/updater/toml_writer.rs` using `toml_edit`.
 - [ ] Support standard string versions (`dep = "1.0"`).
