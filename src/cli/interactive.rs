@@ -208,7 +208,8 @@ impl Interactive {
 
     fn format_string_with_ellipsis(&self, string: &str, max_length: usize) -> String {
         if string.chars().count() > max_length {
-            let shorten: String = string.chars().take(max_length - 3).collect();
+            // We remove 4 chars. Else we have an UI break.
+            let shorten: String = string.chars().take(max_length - 4).collect();
             format!("{}...", shorten)
         } else {
             string.to_string()
