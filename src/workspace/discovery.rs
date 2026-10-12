@@ -27,8 +27,8 @@ use serde::{Deserialize, Serialize};
 use toml_edit::{Item, Value};
 
 use crate::{
-    config::model::ProjectConfig, constants::*, errors::*, functions::*, simple_status,
-    status_codes::Module, workspace::project::Projects,
+    config::model::ProjectConfig, constants::*, errors::*, functions::*,
+    logger::status_codes::Module, simple_status, workspace::project::Projects,
 };
 
 /// Discovers Cargo workspaces, nested crates, and configuration files across directory hierarchies.
@@ -402,8 +402,8 @@ mod test_discovery {
     use super::*;
     use crate::enums::SubConfig;
 
-    #[test]
-    fn test_prepare_ignored_root_returns_unchanged() {
+    #[tokio::test]
+    async fn test_prepare_ignored_root_returns_unchanged() {
         let ignored_before = vec![
             PathBuf::from(".git"),
             PathBuf::from("target"),
@@ -413,8 +413,8 @@ mod test_discovery {
         assert_eq!(result, ignored_before);
     }
 
-    #[test]
-    fn test_prepare_ignored_strips_matching_prefix() {
+    #[tokio::test]
+    async fn test_prepare_ignored_strips_matching_prefix() {
         let ignored_before = vec![
             PathBuf::from("tests/fixtures"),
             PathBuf::from("tests/fixtures/sub"),
@@ -429,8 +429,8 @@ mod test_discovery {
         );
     }
 
-    #[test]
-    fn test_prepare_ignored_multi_level_subfolder() {
+    #[tokio::test]
+    async fn test_prepare_ignored_multi_level_subfolder() {
         let ignored_before = vec![
             PathBuf::from("fixtures/sub_project"),
             PathBuf::from("other_dir"),
@@ -439,8 +439,8 @@ mod test_discovery {
         assert_eq!(result, vec![PathBuf::from("sub_project")]);
     }
 
-    #[test]
-    fn test_remove_from_ignore() {
+    #[tokio::test]
+    async fn test_remove_from_ignore() {
         let mut discovery = Discovery {
             ignore: vec![
                 PathBuf::from("target"),
@@ -464,8 +464,8 @@ mod test_discovery {
         assert_eq!(discovery.ignore, vec![PathBuf::from("target")]);
     }
 
-    #[test]
-    fn test_unique_ignored() {
+    #[tokio::test]
+    async fn test_unique_ignored() {
         let mut discovery = Discovery {
             ignore: vec![
                 PathBuf::from("target"),
@@ -487,8 +487,8 @@ mod test_discovery {
         );
     }
 
-    #[test]
-    fn test_discovery_root_scan() {
+    #[tokio::test]
+    async fn test_discovery_root_scan() {
         let temp = tempfile::tempdir().expect("tempdir");
         let temp_path = temp.path();
 
@@ -521,8 +521,8 @@ mod test_discovery {
         assert!(!discovery.next_depth.contains(&temp_path.join("target")));
     }
 
-    #[test]
-    fn test_discovery_sub_project_scan() {
+    #[tokio::test]
+    async fn test_discovery_sub_project_scan() {
         let temp = tempfile::tempdir().expect("tempdir");
         let sub_path = temp.path().join("sub_crate");
         std::fs::create_dir(&sub_path).expect("create sub dir");
@@ -542,8 +542,8 @@ mod test_discovery {
         assert!(discovery.next_depth.is_empty());
     }
 
-    #[test]
-    fn test_discovery_intermediate_folder_scan() {
+    #[tokio::test]
+    async fn test_discovery_intermediate_folder_scan() {
         let temp = tempfile::tempdir().expect("tempdir");
         let temp_path = temp.path();
         let fixtures_dir = temp_path.join("fixtures");
@@ -561,8 +561,8 @@ mod test_discovery {
         assert_eq!(discovery.next_depth, vec![fixtures_dir]);
     }
 
-    #[test]
-    fn test_discovery_with_gitignore() {
+    #[tokio::test]
+    async fn test_discovery_with_gitignore() {
         let temp = tempfile::tempdir().expect("tempdir");
         let temp_path = temp.path();
 
@@ -592,8 +592,8 @@ mod test_discovery {
         assert!(discovery.next_depth.contains(&visible_dir));
     }
 
-    #[test]
-    fn test_discovery_with_rrduignore_override() {
+    #[tokio::test]
+    async fn test_discovery_with_rrduignore_override() {
         let temp = tempfile::tempdir().expect("tempdir");
         let temp_path = temp.path();
 
@@ -617,8 +617,8 @@ mod test_discovery {
         assert!(discovery.next_depth.contains(&special_dir));
     }
 
-    #[test]
-    fn test_discovery_stops_when_rrduconfig_present() {
+    #[tokio::test]
+    async fn test_discovery_stops_when_rrduconfig_present() {
         let temp = tempfile::tempdir().expect("tempdir");
         let temp_path = temp.path();
 

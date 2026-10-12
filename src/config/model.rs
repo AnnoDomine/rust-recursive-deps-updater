@@ -210,8 +210,8 @@ impl UpdaterConfig {
 mod test_rrdu_config {
     use super::*;
 
-    #[test]
-    fn test_project_config_exclude_dep() {
+    #[tokio::test]
+    async fn test_project_config_exclude_dep() {
         let mut project = ProjectConfig::new("Core".to_string(), "./crates/core".to_string());
         assert!(project.exclude.project.is_empty());
         assert!(project.exclude.section.is_empty());
@@ -250,8 +250,8 @@ mod test_rrdu_config {
         );
     }
 
-    #[test]
-    fn test_updater_config_defaults_and_exclude() {
+    #[tokio::test]
+    async fn test_updater_config_defaults_and_exclude() {
         let mut updater = UpdaterConfig::default();
         assert_eq!(updater.max_lines, 10);
         assert!(updater.exclude.is_empty());
@@ -260,8 +260,8 @@ mod test_rrdu_config {
         assert_eq!(updater.exclude, vec!["crates/vendor"]);
     }
 
-    #[test]
-    fn test_updater_config_ignores_legacy_keys() {
+    #[tokio::test]
+    async fn test_updater_config_ignores_legacy_keys() {
         let yaml_str = r#"
 exclude:
   - test_dir
@@ -279,8 +279,8 @@ version: 0.0.4
         assert_eq!(parsed.version, Some("0.0.4".to_string()));
     }
 
-    #[test]
-    fn test_updater_config_ignores_legacy_list_auto_scan() {
+    #[tokio::test]
+    async fn test_updater_config_ignores_legacy_list_auto_scan() {
         let yaml_str = r#"
 exclude: []
 auto-update: semver-safe
@@ -297,8 +297,8 @@ version: 0.0.4
         assert_eq!(parsed.max_lines, 15);
     }
 
-    #[test]
-    fn test_project_config_get_sub_config_path() {
+    #[tokio::test]
+    async fn test_project_config_get_sub_config_path() {
         let valid_project = ProjectConfig::new("sub".to_string(), "crates/sub".to_string());
         assert_eq!(
             valid_project.get_sub_config_path().unwrap(),

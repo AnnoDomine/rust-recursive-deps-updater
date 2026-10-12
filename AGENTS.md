@@ -95,6 +95,7 @@ rust-recursive-deps-updater/
 │   ├── main.rs          # #![forbid(unsafe_code)], CLI entry point & dispatcher
 │   ├── cli/             # Interactive prompts, pagination, display, table formatting
 │   ├── config/          # .rrduconfig model, noyalib YAML parsing, path validation
+│   ├── logger/          # Trace logging engine, background Tokio worker & status codes
 │   ├── workspace/       # Cargo workspace and crate discovery
 │   ├── registry/        # crates.io API client (ureq + rustls), SemVer classifier
 │   ├── self_update/     # GitHub Release querying and binary self-replacement
@@ -119,5 +120,6 @@ rust-recursive-deps-updater/
 
 ## 5. Testing & Verification
 - Unit tests live next to the code in `src/` inside `#[cfg(test)] mod tests`.
+- **Async Tokio Tests Requirement:** Due to the intensive usage of the Tokio runtime across the codebase (including background trace logging and async registry/workspace operations), all unit and integration tests must generally be declared as `async` functions using `#[tokio::test]` rather than synchronous `#[test]`. This ensures that a Tokio 1.x runtime/reactor is always active whenever status macros or background services are exercised.
 - Integration tests live in `tests/` and use `tempfile` to verify manifest editing, comment preservation, and full end-to-end workflows.
 - Always run `cargo test`, `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, and `RUSTDOCFLAGS="-D warnings -D missing_docs" cargo doc --no-deps` before declaring any task complete.

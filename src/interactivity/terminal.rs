@@ -388,8 +388,8 @@ impl Terminal {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_terminal_initialization() {
+    #[tokio::test]
+    async fn test_terminal_initialization() {
         let term = Terminal::new(10);
         assert_eq!(term.max_items, 10);
         assert!(term.menu_path.is_empty());
@@ -398,8 +398,8 @@ mod tests {
         assert!(term.input_lines.is_empty());
     }
 
-    #[test]
-    fn test_path_manipulation() {
+    #[tokio::test]
+    async fn test_path_manipulation() {
         let mut term = Terminal::new(10);
         term.set_path(vec!["Workspace".to_string(), "Crate A".to_string()]);
         assert_eq!(
@@ -426,15 +426,15 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_set_instruction() {
+    #[tokio::test]
+    async fn test_set_instruction() {
         let mut term = Terminal::new(10);
         term.set_instruction("Press Enter to select".to_string());
         assert_eq!(term.instruction_line, "Press Enter to select");
     }
 
-    #[test]
-    fn test_generate_input_lines() {
+    #[tokio::test]
+    async fn test_generate_input_lines() {
         let mut term = Terminal::new(10);
         term.generate_input_lines(vec![
             SpecialInputs::PrevItem,
@@ -456,8 +456,8 @@ mod tests {
         assert!(term.input_lines[1].contains("Esc = Exit"));
     }
 
-    #[test]
-    fn test_prepare_paginated_input_line_boundaries() {
+    #[tokio::test]
+    async fn test_prepare_paginated_input_line_boundaries() {
         let mut term = Terminal::new(10);
         term.set_available_input(vec![SpecialInputs::Select, SpecialInputs::ViewBack]);
 
@@ -483,8 +483,8 @@ mod tests {
         assert!(!term.input_lines[0].contains("→ = Next Page"));
     }
 
-    #[test]
-    fn test_get_selection_line_formatting() {
+    #[tokio::test]
+    async fn test_get_selection_line_formatting() {
         let term = Terminal::new(10);
         let item = (1, "serde = 1.0.197".to_string());
 
@@ -497,8 +497,8 @@ mod tests {
         assert!(unhighlighted_line.ends_with("   |"));
     }
 
-    #[test]
-    fn test_section_separator_and_fill_line() {
+    #[tokio::test]
+    async fn test_section_separator_and_fill_line() {
         let term = Terminal::new(10);
         let sep = term.get_terminal_section_seperator();
         assert_eq!(sep.len(), TERMINAL_MAX_WIDTH as usize);
@@ -510,8 +510,8 @@ mod tests {
         assert!(fill.ends_with('|'));
     }
 
-    #[test]
-    fn test_sliding_window_pagination_math() {
+    #[tokio::test]
+    async fn test_sliding_window_pagination_math() {
         let items_len: usize = 16;
         let max_items: usize = 10;
 
@@ -560,8 +560,8 @@ mod tests {
         assert_eq!(highlighted, 0);
     }
 
-    #[test]
-    fn test_fill_lines_only_when_total_less_than_max_items() {
+    #[tokio::test]
+    async fn test_fill_lines_only_when_total_less_than_max_items() {
         let max_items: usize = 10;
 
         let small_items_len: usize = 4;

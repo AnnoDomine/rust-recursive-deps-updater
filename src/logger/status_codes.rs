@@ -22,6 +22,8 @@ use std::fmt::Display;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
+use crate::logger::logger::trace;
+
 /// Represents the sub-modules within `rrdu` that report status codes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Module {
@@ -140,6 +142,7 @@ impl<T: Display> StatusCodeSchema<T> {
     /// # Arguments
     /// * `level` - The target `log::LevelFilter` (e.g. `LevelFilter::Info`, `LevelFilter::Debug`).
     pub fn log(&self, level: LevelFilter) {
+        trace().save_log(level, &self.to_string());
         match level {
             LevelFilter::Error => log::error!("{:}", self),
             LevelFilter::Warn => log::warn!("{:}", self),
@@ -161,8 +164,9 @@ impl<T: Display> StatusCodeSchema<T> {
 #[macro_export]
 macro_rules! simple_status {
     ($level:expr, $module:expr, $code:expr, $message:expr) => {{
-        let status =
-            $crate::status_codes::StatusCodeSchema::<String>::simple($module, $code, $message);
+        let status = $crate::logger::status_codes::StatusCodeSchema::<String>::simple(
+            $module, $code, $message,
+        );
         status.log($level);
     }};
 }
@@ -178,8 +182,9 @@ macro_rules! simple_status {
 #[macro_export]
 macro_rules! meta_status {
     ($level:expr, $module:expr, $code:expr, $message:expr, $meta:expr) => {{
-        let status =
-            $crate::status_codes::StatusCodeSchema::with_meta($module, $code, $message, $meta);
+        let status = $crate::logger::status_codes::StatusCodeSchema::with_meta(
+            $module, $code, $message, $meta,
+        );
         status.log($level);
     }};
 }

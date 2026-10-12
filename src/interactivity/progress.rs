@@ -28,7 +28,7 @@ impl Progress {
                 if !is_headless {
                     meta_status!(
                         log::LevelFilter::Error,
-                        crate::status_codes::Module::INTERACTIVITY,
+                        crate::logger::status_codes::Module::INTERACTIVITY,
                         500,
                         "An error occured while style the progress bars.",
                         e

@@ -103,8 +103,8 @@ pub fn create_absolute_path(path: &Path, file_name: Option<&str>) -> Result<Path
 mod test_path_validation {
     use super::*;
 
-    #[test]
-    fn test_validate_path_valid_relative_paths() {
+    #[tokio::test]
+    async fn test_validate_path_valid_relative_paths() {
         let valid_paths = [
             "./",
             "./Cargo.toml",
@@ -121,8 +121,8 @@ mod test_path_validation {
         }
     }
 
-    #[test]
-    fn test_validate_path_rejects_parent_traversal() {
+    #[tokio::test]
+    async fn test_validate_path_rejects_parent_traversal() {
         let traversal_paths = [
             "../",
             "../Cargo.toml",
@@ -139,9 +139,9 @@ mod test_path_validation {
         }
     }
 
-    #[test]
+    #[tokio::test]
     #[cfg(unix)]
-    fn test_validate_path_rejects_root_and_prefix() {
+    async fn test_validate_path_rejects_root_and_prefix() {
         let absolute_paths = ["/", "/etc/passwd", "/home/user/project"];
 
         for path in absolute_paths {
@@ -152,9 +152,9 @@ mod test_path_validation {
         }
     }
 
-    #[test]
+    #[tokio::test]
     #[cfg(windows)]
-    fn test_validate_path_rejects_root_and_prefix() {
+    async fn test_validate_path_rejects_root_and_prefix() {
         let absolute_paths = ["C:\\", "C:\\Windows\\System32", "D:\\"];
 
         for path in absolute_paths {
@@ -165,8 +165,8 @@ mod test_path_validation {
         }
     }
 
-    #[test]
-    fn test_validate_path_and_file_name() {
+    #[tokio::test]
+    async fn test_validate_path_and_file_name() {
         let dir = PathBuf::from("./crates/foo");
         assert_eq!(
             validate_path_and_file_name(&dir, "Cargo.toml").unwrap(),
@@ -183,8 +183,8 @@ mod test_path_validation {
         assert!(validate_path_and_file_name(&invalid, "Cargo.toml").is_err());
     }
 
-    #[test]
-    fn test_create_absolute_path_with_tempfile() {
+    #[tokio::test]
+    async fn test_create_absolute_path_with_tempfile() {
         let temp = tempfile::tempdir().expect("tempdir");
         let temp_path = temp.path();
 

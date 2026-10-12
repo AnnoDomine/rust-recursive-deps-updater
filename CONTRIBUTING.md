@@ -51,10 +51,11 @@ git checkout -b feat/your-feature-name
 - **Formatting:** Run `cargo fmt` before submitting changes.
 - **Linter:** Ensure `cargo clippy --all-targets -- -D warnings` completes without warnings.
 - **Documentation:** All public types, functions, and modules must include descriptive Rustdoc `///` comments.
+- **Asynchronous Tests:** Due to the intensive usage of Tokio across the codebase (including background trace logging and async workspace operations), all unit and integration tests must be declared as `async` functions using `#[tokio::test]`. Do not use standard synchronous `#[test]`.
 
 ### Structured Logging Guidelines
 
-All runtime feedback, progress indicators, and diagnostics must use the structured status code system defined in `src/status_codes.rs`:
+All runtime feedback, progress indicators, and diagnostics must use the structured status code system defined in `src/logger/status_codes.rs`:
 
 ```rust
 // Simple status message:

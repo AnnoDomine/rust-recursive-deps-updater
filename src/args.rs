@@ -13,4 +13,7 @@ pub struct Args {
     /// Create report output for GitHub issue. This can be piped (e.g. `rrdu --report | tee rrdu_report.txt`)
     #[arg(long, default_value_t = false)]
     pub report: bool,
+    /// Enable trace file
+    #[arg(long, default_value_t = false)]
+    pub trace: bool,
 }
