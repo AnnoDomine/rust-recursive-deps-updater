@@ -1230,8 +1230,14 @@ mod test_sub_config {
         let expected_root = PathBuf::from(format!("{}/./", rel_dir));
         let expected_inner = PathBuf::from(format!("{}/crates/inner", rel_dir));
 
-        assert_eq!(PathBuf::from(config.workspace[0].path.clone()), expected_root);
-        assert_eq!(PathBuf::from(config.workspace[1].path.clone()), expected_inner);
+        assert_eq!(
+            PathBuf::from(config.workspace[0].path.clone()),
+            expected_root
+        );
+        assert_eq!(
+            PathBuf::from(config.workspace[1].path.clone()),
+            expected_inner
+        );
     }
 
     #[tokio::test]
@@ -1258,8 +1264,14 @@ mod test_sub_config {
         let expected_root = PathBuf::from(format!("{}/./", rel_dir));
         let expected_inner = PathBuf::from(format!("{}/crates/inner", rel_dir));
 
-        assert_eq!(PathBuf::from(config.workspace[0].path.clone()), expected_root);
-        assert_eq!(PathBuf::from(config.workspace[1].path.clone()), expected_inner);
+        assert_eq!(
+            PathBuf::from(config.workspace[0].path.clone()),
+            expected_root
+        );
+        assert_eq!(
+            PathBuf::from(config.workspace[1].path.clone()),
+            expected_inner
+        );
     }
 
     #[tokio::test]
