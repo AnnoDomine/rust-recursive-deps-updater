@@ -374,7 +374,7 @@ rust-recursive-deps-updater/
 ### Phase 5: Comment-Preserving Manifest Updater (`updater`)
 
 - [x] Fix UI bug (ellipsis) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/8).
-- [ ] Fix config bug (max-lines) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/9).
+- [x] Fix config bug (max-lines) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/9).
 - [x] Fix sub-config bug from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/10).
 - [x] Fix UI bug (invalid deps) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/11).
 - [ ] Fix Terminal bug (blocking lines) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/13).
