@@ -49,7 +49,8 @@ This document serves as the single source of truth and directive for all AI agen
     - `2`: User cancellation (Ctrl+C).
 - **Logging & Diagnostics (No raw `println!`):**
   - Raw `println!` and `eprintln!` calls are strictly forbidden in production code paths to prevent polluting interactive terminal views or breaking CI table reporting.
-  - All status reporting, diagnostic messages, and operational events must use the structured logging macros (`simple_status!`, `meta_status!`) with typed `Module` categories and standardized status codes (`1YXX` - `6YXX`) backed by the `log` facade.
+  - All status reporting, diagnostic messages, and operational events must use the structured logging macros (`simple_status!`, `meta_status!`) with typed `Module` categories and standardized status codes (`1YXX` - `8YXX`) defined in `src/logger/status_codes.rs`.
+  - Background trace file logging is handled asynchronously by `src/logger/logger.rs` via an in-memory Tokio MPSC queue (`mpsc::channel(5000)`). When enabled via `--trace` or `--report`, records are written to `./audit/rrdu.log` with automatic 1 MB log splitting into timestamped archives (`rrdu_yyyy_mm_dd_hh_mm_ss_ms.log`).
 - **Language Standards:**
   - All source code identifiers (variables, functions, structs, enums, modules), comments, documentation, commit messages, and pull request descriptions must be in **English**.
 - **Documentation Standards:**

@@ -166,11 +166,14 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 - Preserves 100% of user comments, formatting, indentation, and structure.
 - Handles standard string versions (`dep = "1.0"`), inline tables (`dep = { version = "1.0", features = [...] }`), and workspace dependencies (`[workspace.dependencies]`).
 
-### 2.6 Dual-Mode Logging Infrastructure
+### 2.6 Asynchronous Trace Logging & Structured Status Codes
 
-- **Architecture:** Pure safe Rust logger implementing the `log` facade (`debug!`, `info!`, `warn!`, `error!`) powered by `simple_logger` with `time` timestamp formatting. Diagnostic messages and status events are unified through `StatusCodeSchema<T>` and ergonomic macros (`simple_status!`, `meta_status!`).
-- **Mode 1 (Headless CI / `--headless`):** Routes logs directly to `stderr` in the terminal for clean GitHub Actions and CI pipeline logging without polluting `stdout`.
-- **Mode 2 (Interactive CLI / `--init`):** Routes logs exclusively into `./rrdu.log` in the execution folder, rewritten/truncated on every launch to keep the interactive terminal UI (spinners, paginated tables, navigation prompts) completely clean.
+- **Architecture:** Pure safe Rust asynchronous logging engine located in `src/logger/`, backed by Tokio's multi-threaded runtime.
+- **Non-Blocking Channel:** Log records are dispatched via an in-memory Tokio MPSC channel (`mpsc::channel(5000)`), ensuring caller threads and interactive rendering loops are never blocked by disk I/O.
+- **Dedicated Background Worker:** A Tokio worker task consumes log entries from the channel and writes them sequentially to `./audit/rrdu.log`.
+- **Automatic Log Splitting & Rotation:** When the active log file exceeds `max_size` (1 MB / `1024 * 1024` bytes), the worker automatically syncs, closes, and renames the file into an archive using a UTC timestamp pattern: `audit/rrdu_yyyy_mm_dd_hh_mm_ss_ms.log`.
+- **Invocation Modes:** Background trace file writing is enabled when `--trace` or `--report` CLI flags are specified.
+- **Global Access & Status Codes:** Exposes a thread-safe global singleton via `OnceLock<Logger>` accessible through `trace()`. Integrates with the structured status code schema (`StatusCodeSchema<T>`) and ergonomic macros (`simple_status!`, `meta_status!`) across modules `1YXX` - `8YXX`.
 
 ---
 
@@ -236,6 +239,10 @@ rust-recursive-deps-updater/
 │ ├── config/ # .rrduconfig data models & noyalib YAML parser
 │ │ ├── mod.rs
 │ │ └── model.rs # Config structs, exclude evaluation, path validation
+│ ├── logger/ # Asynchronous trace logging engine, Tokio MPSC worker, rotation & status codes
+│ │ ├── mod.rs
+│ │ ├── logger.rs # LogWorker, Logger actor, file splitting and rotation
+│ │ └── status_codes.rs # Module enum, StatusCodeSchema & status macros
 │ ├── workspace/ # Cargo workspace & standalone crate discovery
 │ │ ├── mod.rs
 │ │ ├── discovery.rs # Manifest search, glob resolution for workspace members
@@ -353,7 +360,7 @@ rust-recursive-deps-updater/
 
 ### Phase 4: Interactive CLI, Table Formatter & Headless Modes (`cli`)
 
-- [X] Implement dual-mode logging infrastructure (`log` facade via `simple_logger`) routing to `./rrdu.log` (CLI mode, truncated on startup) or `stderr` (CI mode), replacing raw `println!` calls.
+- [x] Implement asynchronous trace logging engine in `src/logger/` with Tokio MPSC queuing, automatic 1 MB log splitting, and timestamped archive rotation (`rrdu_yyyy_mm_dd_hh_mm_ss_ms.log`).
 - [X] Filter out yanked versions from registry responses when selecting latest versions for display and updates.
 - [x] Implement interactive banner, status presentation, and `indicatif` spinner.
 - [x] Implement table renderer in `src/cli/headless.rs` via `comfy-table-inline` (using `Table::force_no_tty` by default for zero unsafe).

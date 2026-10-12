@@ -38,7 +38,7 @@
 - **Two-Tier Registry Strategy:** Ultra-fast, zero-latency execution in CI pipelines via the static crates.io Sparse Index (`https://index.crates.io/`). Rich metadata queries in interactive mode strictly throttled to 1 request/second adhering to the official crates.io Data Access Policy.
 - **RustSec Security Advisory Checks:** Integrates package vulnerability audits directly from `rustsec.org` to report known security patches, CVEs, and affected SemVer ranges.
 - **Persistent Tri-Cache:** Strongly-typed user-space cache (`~/.rrdu/cache/`) with TTL expiration checks (24h for crates.io index/API, 6h for security advisories) to eliminate redundant network calls across sessions.
-- **Structured Status & Diagnostic Logging:** Clean logging implementation via `log` and `simple_logger` with typed module status codes (`1YXX` - `6YXX`) and timestamped console output.
+- **Asynchronous Trace Logging & Structured Status Codes:** Pure safe Rust async logging engine (`src/logger/`) with typed module status codes (`1YXX` - `8YXX`) and non-blocking Tokio MPSC queuing (`mpsc::channel(5000)`). Log entries are processed by a dedicated background worker writing to `./audit/rrdu.log` with automatic 1 MB log splitting and timestamped archive rotation (`rrdu_yyyy_mm_dd_hh_mm_ss_ms.log`) when `--trace` or `--report` is enabled.
 - **Headless CI & GitHub Action:** Dedicated non-interactive audit execution (`--headless`) providing a clean tabular report for CI/CD gates, running 100% free of unsafe TTY calls.
 - **Integrated Self-Update:** Update `rrdu` directly to the newest release with `rrdu --self-update`.
 - **Dynamic Terminal & CI Table Reporting:** Powered by `comfy-table-inline` (a custom release of `comfy-table` integrating native inline table support) with `Table::force_no_tty` by default in headless mode to guarantee zero unsafe `ioctl` calls, while delivering beautiful auto-wrapping layouts, clean borders, and SemVer status highlights across both interactive and headless CI modes.
@@ -123,7 +123,15 @@ Generate an anonymized diagnostic report to paste into GitHub issues (paths are 
 rrdu --report
 ```
 
-### 6. Command Help
+### 6. Trace File Logging
+
+Enable background trace logging to `./audit/rrdu.log` with automatic 1 MB splitting and timestamped archives:
+
+```sh
+rrdu --trace
+```
+
+### 7. Command Help
 
 Display a formatted reference of all available commands, options, and descriptions:
 
