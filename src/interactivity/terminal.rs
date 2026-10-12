@@ -1,4 +1,7 @@
-use std::{io, process};
+use std::{
+    io::{self, Write},
+    process,
+};
 
 use dialoguer::console::{Key, Term};
 
@@ -244,6 +247,15 @@ impl Terminal {
         format!("|{:>fill_amount$}", "|")
     }
 
+    /// Leaves the alternate screen buffer, unhides the cursor, and flushes stdout.
+    pub fn leave_alternate_screen() -> io::Result<()> {
+        let term = Term::stdout();
+        term.show_cursor()?;
+        print!("\x1b[?1049l");
+        io::stdout().flush()?;
+        Ok(())
+    }
+
     /// Renders the interactive terminal interface loop, handling user keystrokes, pagination, and item selection.
     ///
     /// # Arguments
@@ -368,12 +380,12 @@ impl Terminal {
                 }
                 // Clean quit
                 Key::CtrlC => {
-                    term.clear_screen()?;
+                    Self::leave_alternate_screen()?;
                     process::exit(2);
                 }
                 // Clean exit
                 Key::Escape => {
-                    term.clear_screen()?;
+                    Self::leave_alternate_screen()?;
                     process::exit(0);
                 }
                 _ => {}
