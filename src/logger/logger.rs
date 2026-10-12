@@ -8,7 +8,7 @@ use std::{
 };
 use time::UtcDateTime;
 use tokio::{
-    fs::{File, OpenOptions, create_dir_all, read_dir, rename},
+    fs::{File, OpenOptions, create_dir_all, rename},
     io::AsyncWriteExt,
     sync::mpsc,
 };
@@ -22,8 +22,6 @@ pub struct LogWorker {
     pub path: PathBuf,
     /// Maximum file size in bytes before rotating the log file.
     pub max_size: u64,
-    /// Optional cached count of existing archived log files.
-    pub archive_amount: Option<usize>,
 }
 
 /// Asynchronous logger dispatching log entries via an in-memory Tokio MPSC channel.
@@ -60,37 +58,21 @@ impl LogWorker {
         Self {
             path: log_file,
             max_size,
-            archive_amount: None,
-        }
-    }
-
-    async fn get_log_archive_amount(&self) -> usize {
-        let log_file_string = "rrdu";
-        let log_path = &self.path;
-        let dir_content = read_dir(log_path).await;
-        match dir_content {
-            Err(_) => 0,
-            Ok(mut entries) => {
-                let mut count = 0;
-                while let Ok(Some(e)) = entries.next_entry().await {
-                    if let Some(f) = e.file_name().to_str()
-                        && f != RRDU_LOG
-                        && f.starts_with(log_file_string)
-                    {
-                        count += 1;
-                    }
-                }
-                count
-            }
         }
     }
 
     async fn create_log_file_archive_name(&self) -> String {
-        let count = match &self.archive_amount {
-            Some(c) => c + 1,
-            None => self.get_log_archive_amount().await + 1,
-        };
-        format!("rrdu_{count}.log")
+        let t = time::OffsetDateTime::now_utc();
+        format!(
+            "rrdu_{:04}_{:02}_{:02}_{:02}_{:02}_{:02}_{:03}.log",
+            t.year(),
+            t.month() as u8,
+            t.day(),
+            t.hour(),
+            t.minute(),
+            t.second(),
+            t.millisecond()
+        )
     }
 
     async fn split_log(&self, file: File) -> std::io::Result<File> {
@@ -253,8 +235,7 @@ impl Logger {
     /// * `message` - Log message payload.
     pub fn print_and_save_log(&self, level: LevelFilter, message: &str) {
         // Print the entry and save trace file.
-        let entry = Self::generate_trace_message(level, message);
-        println!("{:}", entry);
+        println!("{:}", message);
         self.save_log(level, message);
     }
 }
@@ -268,4 +249,27 @@ pub static LOGGER: OnceLock<Logger> = OnceLock::new();
 /// A cloned handle to the active `Logger`.
 pub fn trace() -> Logger {
     LOGGER.get_or_init(Logger::new).clone()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_archive_name() {
+        let worker = LogWorker::new();
+        let name = worker.create_log_file_archive_name().await;
+        assert!(name.starts_with("rrdu_"));
+        assert!(name.ends_with(".log"));
+        let inner = &name[5..name.len() - 4];
+        let parts: Vec<&str> = inner.split('_').collect();
+        assert_eq!(parts.len(), 7);
+        assert_eq!(parts[0].len(), 4); // yyyy
+        assert_eq!(parts[1].len(), 2); // mm
+        assert_eq!(parts[2].len(), 2); // dd
+        assert_eq!(parts[3].len(), 2); // hh
+        assert_eq!(parts[4].len(), 2); // mm
+        assert_eq!(parts[5].len(), 2); // ss
+        assert_eq!(parts[6].len(), 3); // ms
+    }
 }
