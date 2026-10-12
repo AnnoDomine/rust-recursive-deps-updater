@@ -725,6 +725,41 @@ impl Workspace {
         }
     }
 
+    fn parse_sub_config_project_paths(&self, config: &mut RrduConfig, sub_config_path: PathBuf) {
+        // We need to align all paths from the sub_config. Otherwise nested configs are not getting correct used and run into an error.
+        // See: [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/10)
+        let mut clean_sub_config_path = sub_config_path;
+        // Remove the file definition from the path if present.
+        if clean_sub_config_path.is_file() {
+            clean_sub_config_path.pop();
+        };
+        simple_status!(
+            log::LevelFilter::Trace,
+            Module::WORKSPACE,
+            100,
+            format!(
+                "Path for sub config projects: '{:?}'",
+                clean_sub_config_path
+            )
+        );
+        // Align path to all projects.
+        for p in &mut config.workspace {
+            let mut path = clean_sub_config_path.clone();
+            path.push(p.path.clone());
+            let path_string = path.display().to_string();
+            p.path = path_string;
+            simple_status!(
+                log::LevelFilter::Trace,
+                Module::WORKSPACE,
+                200,
+                format!(
+                    "Path for sub config project {:} aligned to '{:?}'",
+                    p.project, p.path
+                )
+            );
+        }
+    }
+
     /// Load the .rrduconfig file to parse the projects.
     /// Trigger Self::collect_projects if config could loaded (is supported by the executed version of 'rrdu' and is present).
     /// Automatic respects config key 'workspace.sub-config'.
@@ -742,7 +777,15 @@ impl Workspace {
             None => Ok(RrduConfig::new()),
         };
         match config {
-            Ok(c) => {
+            Ok(mut c) => {
+                // If path is defined (not None), the config is not in the same folder like the rrdu execution, so to parse the config
+                // and the included projects correct, we have to align the paths of the related projects.
+                // Otherwise we will run into an error as rrdu tries to read the Cargo.toml from the execution path + defined project path,
+                // istead of execution path + path to config (excl. config file) + path defined in the project.
+                // See: [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/10)
+                if let Some(p) = path {
+                    self.parse_sub_config_project_paths(&mut c, p);
+                }
                 self.config = Some(c.clone());
                 self.collect_projects(c)?;
             }
@@ -1149,6 +1192,365 @@ mod test_dependency_entry {
                 Boolean::False,
                 "Section excluded!".to_string()
             )
+        );
+    }
+}
+
+#[cfg(test)]
+mod test_sub_config {
+    use super::*;
+    use tempfile::Builder;
+
+    #[tokio::test]
+    async fn test_parse_sub_config_project_paths_alignment_with_file() {
+        let temp = Builder::new()
+            .prefix("test_align_file_")
+            .tempdir_in(".")
+            .expect("create tempdir");
+        let rel_dir = temp.path().file_name().unwrap().to_str().unwrap();
+
+        let sub_config_file = temp.path().join(".rrduconfig");
+        std::fs::write(&sub_config_file, "").expect("write empty config");
+
+        let rel_sub_config_path = PathBuf::from(rel_dir).join(".rrduconfig");
+
+        let mut config = RrduConfig::default();
+        config.workspace.push(ProjectConfig::new(
+            "root_crate".to_string(),
+            "./".to_string(),
+        ));
+        config.workspace.push(ProjectConfig::new(
+            "inner_crate".to_string(),
+            "crates/inner".to_string(),
+        ));
+
+        let workspace = Workspace::new();
+        workspace.parse_sub_config_project_paths(&mut config, rel_sub_config_path);
+
+        let expected_root = format!("{}/./", rel_dir);
+        let expected_inner = format!("{}/crates/inner", rel_dir);
+
+        assert_eq!(config.workspace[0].path, expected_root);
+        assert_eq!(config.workspace[1].path, expected_inner);
+    }
+
+    #[tokio::test]
+    async fn test_parse_sub_config_project_paths_alignment_with_dir() {
+        let temp = Builder::new()
+            .prefix("test_align_dir_")
+            .tempdir_in(".")
+            .expect("create tempdir");
+        let rel_dir = temp.path().file_name().unwrap().to_str().unwrap();
+
+        let mut config = RrduConfig::default();
+        config.workspace.push(ProjectConfig::new(
+            "root_crate".to_string(),
+            "./".to_string(),
+        ));
+        config.workspace.push(ProjectConfig::new(
+            "inner_crate".to_string(),
+            "crates/inner".to_string(),
+        ));
+
+        let workspace = Workspace::new();
+        workspace.parse_sub_config_project_paths(&mut config, PathBuf::from(rel_dir));
+
+        let expected_root = format!("{}/./", rel_dir);
+        let expected_inner = format!("{}/crates/inner", rel_dir);
+
+        assert_eq!(config.workspace[0].path, expected_root);
+        assert_eq!(config.workspace[1].path, expected_inner);
+    }
+
+    #[tokio::test]
+    async fn test_workspace_single_level_sub_config_loading() {
+        let temp = Builder::new()
+            .prefix("test_sub_single_")
+            .tempdir_in(".")
+            .expect("create tempdir");
+        let rel_dir = temp.path().file_name().unwrap().to_str().unwrap();
+
+        let child_crate_dir = temp.path().join("child_crate");
+        std::fs::create_dir_all(&child_crate_dir).expect("create child crate dir");
+
+        let cargo_toml_content = r#"[package]
+name = "child-crate"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = "1.0.0"
+"#;
+        std::fs::write(child_crate_dir.join("Cargo.toml"), cargo_toml_content)
+            .expect("write Cargo.toml");
+
+        let sub_config_content = r#"workspace:
+  - project: child-crate
+    path: ./
+"#;
+        std::fs::write(child_crate_dir.join(".rrduconfig"), sub_config_content)
+            .expect("write .rrduconfig");
+
+        let mut workspace = Workspace::new();
+        let mut sub_proj =
+            ProjectConfig::new("child-sub".to_string(), format!("{}/child_crate", rel_dir));
+        sub_proj.set_sub_config(true);
+
+        workspace
+            .add_project(sub_proj)
+            .expect("delegation to sub-config should succeed");
+
+        assert_eq!(workspace.projects.len(), 1);
+        assert_eq!(workspace.projects[0].name, "child-crate");
+        assert_eq!(
+            workspace.projects[0].path,
+            PathBuf::from(format!("{}/child_crate/./", rel_dir))
+        );
+        assert!(
+            workspace.collected_deps.contains_key("serde"),
+            "Dependencies from child crate should be collected"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_workspace_multi_level_nested_sub_configs() {
+        let temp = Builder::new()
+            .prefix("test_sub_multi_")
+            .tempdir_in(".")
+            .expect("create tempdir");
+        let rel_dir = temp.path().file_name().unwrap().to_str().unwrap();
+
+        // Structure:
+        // <temp>/level1/
+        //   .rrduconfig (defines direct-crate at "direct" and level2-sub at "level2" with sub-config: true)
+        //   direct/Cargo.toml (dep: anyhow)
+        //   level2/
+        //     .rrduconfig (defines level2-crate at "./")
+        //     Cargo.toml (dep: tokio)
+
+        let level1_dir = temp.path().join("level1");
+        let direct_dir = level1_dir.join("direct");
+        let level2_dir = level1_dir.join("level2");
+
+        std::fs::create_dir_all(&direct_dir).expect("create direct dir");
+        std::fs::create_dir_all(&level2_dir).expect("create level2 dir");
+
+        let direct_cargo = r#"[package]
+name = "direct-crate"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.0"
+"#;
+        std::fs::write(direct_dir.join("Cargo.toml"), direct_cargo)
+            .expect("write direct Cargo.toml");
+
+        let level2_cargo = r#"[package]
+name = "level2-crate"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = "1.0.0"
+"#;
+        std::fs::write(level2_dir.join("Cargo.toml"), level2_cargo)
+            .expect("write level2 Cargo.toml");
+
+        let level2_config = r#"workspace:
+  - project: level2-crate
+    path: ./
+"#;
+        std::fs::write(level2_dir.join(".rrduconfig"), level2_config)
+            .expect("write level2 .rrduconfig");
+
+        let level1_config = r#"workspace:
+  - project: direct-crate
+    path: direct
+  - project: level2-sub
+    path: level2
+    sub-config: true
+"#;
+        std::fs::write(level1_dir.join(".rrduconfig"), level1_config)
+            .expect("write level1 .rrduconfig");
+
+        let mut workspace = Workspace::new();
+        let mut level1_proj =
+            ProjectConfig::new("level1-sub".to_string(), format!("{}/level1", rel_dir));
+        level1_proj.set_sub_config(true);
+
+        workspace
+            .add_project(level1_proj)
+            .expect("multi-level nested config delegation should succeed");
+
+        assert_eq!(
+            workspace.projects.len(),
+            2,
+            "Should have collected both direct-crate and level2-crate"
+        );
+        assert_eq!(workspace.projects[0].name, "direct-crate");
+        assert_eq!(
+            workspace.projects[0].path,
+            PathBuf::from(format!("{}/level1/direct", rel_dir))
+        );
+        assert_eq!(workspace.projects[1].name, "level2-crate");
+        assert_eq!(
+            workspace.projects[1].path,
+            PathBuf::from(format!("{}/level1/level2/./", rel_dir))
+        );
+
+        assert!(
+            workspace.collected_deps.contains_key("anyhow"),
+            "direct-crate dependency 'anyhow' should be registered"
+        );
+        assert!(
+            workspace.collected_deps.contains_key("tokio"),
+            "level2-crate dependency 'tokio' should be registered"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_workspace_nested_sub_config_with_updater_exclusion() {
+        let temp = Builder::new()
+            .prefix("test_sub_exclude_")
+            .tempdir_in(".")
+            .expect("create tempdir");
+        let rel_dir = temp.path().file_name().unwrap().to_str().unwrap();
+
+        let child_crate_dir = temp.path().join("child_crate");
+        std::fs::create_dir_all(&child_crate_dir).expect("create child crate dir");
+
+        let cargo_toml_content = r#"[package]
+name = "excluded-crate"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = "1.0.0"
+"#;
+        std::fs::write(child_crate_dir.join("Cargo.toml"), cargo_toml_content)
+            .expect("write Cargo.toml");
+
+        let sub_config_content = r#"workspace:
+  - project: excluded-crate
+    path: ./
+updater:
+  exclude:
+    - excluded-crate
+  version: 0.0.5
+"#;
+        std::fs::write(child_crate_dir.join(".rrduconfig"), sub_config_content)
+            .expect("write .rrduconfig");
+
+        let mut workspace = Workspace::new();
+        let mut sub_proj = ProjectConfig::new(
+            "sub-excluded".to_string(),
+            format!("{}/child_crate", rel_dir),
+        );
+        sub_proj.set_sub_config(true);
+
+        workspace
+            .add_project(sub_proj)
+            .expect("nested config should load successfully");
+
+        assert_eq!(workspace.projects.len(), 1);
+        assert_eq!(workspace.projects[0].name, "excluded-crate");
+        assert_eq!(
+            workspace.projects[0].deps,
+            ProjectDependency::ExcludedProject,
+            "Excluded project in sub-config should be marked as ExcludedProject"
+        );
+        assert!(
+            !workspace.collected_deps.contains_key("serde"),
+            "Dependencies of excluded project should not be collected"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_workspace_nested_sub_config_with_project_dep_exclusion() {
+        let temp = Builder::new()
+            .prefix("test_sub_dep_excl_")
+            .tempdir_in(".")
+            .expect("create tempdir");
+        let rel_dir = temp.path().file_name().unwrap().to_str().unwrap();
+
+        let child_crate_dir = temp.path().join("child_crate");
+        std::fs::create_dir_all(&child_crate_dir).expect("create child crate dir");
+
+        let cargo_toml_content = r#"[package]
+name = "dep-excl-crate"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = "1.0.0"
+"#;
+        std::fs::write(child_crate_dir.join("Cargo.toml"), cargo_toml_content)
+            .expect("write Cargo.toml");
+
+        let sub_config_content = r#"workspace:
+  - project: dep-excl-crate
+    path: ./
+    exclude:
+      project:
+        - serde
+"#;
+        std::fs::write(child_crate_dir.join(".rrduconfig"), sub_config_content)
+            .expect("write .rrduconfig");
+
+        let mut workspace = Workspace::new();
+        let mut sub_proj = ProjectConfig::new(
+            "sub-dep-excl".to_string(),
+            format!("{}/child_crate", rel_dir),
+        );
+        sub_proj.set_sub_config(true);
+
+        workspace
+            .add_project(sub_proj)
+            .expect("nested config should load successfully");
+
+        assert_eq!(workspace.projects.len(), 1);
+        assert_eq!(workspace.projects[0].name, "dep-excl-crate");
+
+        // Verify that serde dependency is marked as ExcludedInProject
+        if let ProjectDependency::Map(sections) = &workspace.projects[0].deps {
+            let section_map = sections
+                .get(&DependencySection::Normal)
+                .expect("dependencies section");
+            if let DependencySectionMap::Map(deps) = section_map {
+                let serde_entry = deps.get("serde").expect("serde entry");
+                assert_eq!(
+                    serde_entry.version(),
+                    &DependencyVersion::Excluded(ExcludeReason::ExcludedInProject),
+                    "serde should be excluded at project level"
+                );
+            } else {
+                panic!("Expected DependencySectionMap::Map");
+            }
+        } else {
+            panic!("Expected ProjectDependency::Map");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_workspace_sub_config_not_found_error() {
+        let temp = Builder::new()
+            .prefix("test_sub_err_")
+            .tempdir_in(".")
+            .expect("create tempdir");
+        let rel_dir = temp.path().file_name().unwrap().to_str().unwrap();
+
+        let mut workspace = Workspace::new();
+        let mut missing_proj = ProjectConfig::new(
+            "non-existent".to_string(),
+            format!("{}/missing_dir", rel_dir),
+        );
+        missing_proj.set_sub_config(true);
+
+        let result = workspace.add_project(missing_proj);
+        assert!(
+            result.is_err(),
+            "Delegating to a non-existent sub-config path should return an error"
         );
     }
 }
