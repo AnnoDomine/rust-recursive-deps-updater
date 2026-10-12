@@ -101,6 +101,7 @@ rust-recursive-deps-updater/
 │   ├── registry/        # crates.io API client (ureq + rustls), SemVer classifier
 │   ├── self_update/     # GitHub Release querying and binary self-replacement
 │   └── updater/         # toml_edit based Cargo.toml writer
+├── scripts/             # Developer utility and bundling scripts (bundle_dev.sh)
 ├── tests/               # Integration tests and fixture workspaces
 ├── action.yml           # GitHub Composite Action for the GitHub Marketplace
 ├── .cursorrules         # Cursor IDE directive (points to AGENTS.md)
