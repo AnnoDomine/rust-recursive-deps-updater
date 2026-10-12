@@ -783,10 +783,12 @@ impl Workspace {
                 // Otherwise we will run into an error as rrdu tries to read the Cargo.toml from the execution path + defined project path,
                 // istead of execution path + path to config (excl. config file) + path defined in the project.
                 // See: [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/10)
-                if let Some(p) = path {
-                    self.parse_sub_config_project_paths(&mut c, p);
+                match path {
+                    Some(p) => self.parse_sub_config_project_paths(&mut c, p),
+                    // Only store the rrdu config if path was not provided (None).
+                    None => self.config = Some(c.clone()),
                 }
-                self.config = Some(c.clone());
+
                 self.collect_projects(c)?;
             }
             Err(e) => return Err(FileError::ConfigError(e)),
