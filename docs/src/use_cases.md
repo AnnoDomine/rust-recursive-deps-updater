@@ -14,13 +14,22 @@ rrdu
 
 - **Hierarchical Inspection:** Navigate through workspace projects, inspect dependency sections (`[dependencies]`, `[dev-dependencies]`, `[build-dependencies]`), and drill down into individual dependencies.
 - **Visual Status & Counts:** Each project displays section counts and dependency tallies (e.g., `Sections: 2 / 2 | Total dependencies: 14 / 16`), with SemVer update statuses highlighted (`Update required`, `Migration required`, `No action`).
-- **Sliding-Window Navigation:**
-  - `↑` / `↓`: Move the highlighted selection across rows.
-  - `←` / `→`: Flip pages smoothly (bounded by `updater.max-lines`).
-  - `Enter`: Select item and drill down into child view.
-  - `Backspace`: Return to the previous view level.
-  - `u`: Trigger update for the selected dependency.
-  - `Esc` / `Ctrl+C`: Exit cleanly while restoring terminal state.
+- **Context-Aware Keyboard Navigation:**
+
+  | Key | Workspace, Project and Section overview | Dependency overview |
+  | -- | -- | -- |
+  | Esc / Ctrl+C / Cmd+C | Quit RRDU | Quit RRDU |
+  | Backspace | Prev View | Prev View |
+  | Enter / Return | Change view to selected Item | __n/a__ |
+  | Arrow Up | Select prev item | Scroll up |
+  | Arrow Down | Select next item | Scroll down |
+  | Home | Select first item | Scroll to top |
+  | End | Select last item | Scroll to bottom |
+  | Page Up | Change to prev page | Scroll one page up |
+  | Page down | Change to next page | Scroll one page down |
+  | Arrow Left | __n/a__ | Select prev tab |
+  | Arrow Right | __n/a__ | Select next tab |
+  | Keyboard `u` | Update dependency | Update dependency |
 
 ---
 

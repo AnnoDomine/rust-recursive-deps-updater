@@ -80,13 +80,20 @@ Run `rrdu` inside your Rust workspace root without arguments:
 rrdu
 ```
 
-- Select individual projects or navigate through workspaces.
-- Use `↑` / `↓` arrow keys to highlight items.
-- Use `←` / `→` arrow keys to navigate between pages.
-- Press `Enter` to select an item.
-- Press `Backspace` to return to the previous view.
-- Press `u` to update the selected dependency.
-- Press `Esc` or `Ctrl+C` to quit anytime.
+| Key | Workspace, Project and Section overview | Dependency overview |
+| -- | -- | -- |
+| Esc / Ctrl+C / Cmd+C | Quit RRDU | Quit RRDU |
+| Backspace | Prev View | Prev View |
+| Enter / Return | Change view to selected Item | __n/a__ |
+| Arrow Up | Select prev item | Scroll up |
+| Arrow Down | Select next item | Scroll down |
+| Home | Select first item | Scroll to top |
+| End | Select last item | Scroll to bottom |
+| Page Up | Change to prev page | Scroll one page up |
+| Page down | Change to next page | Scroll one page down |
+| Arrow Left | __n/a__ | Select prev tab |
+| Arrow Right | __n/a__ | Select next tab |
+| Keyboard `u` | Update dependency | Update dependency |
 
 ### 2. Configuration Initialization
 
@@ -169,16 +176,16 @@ updater:
 
 ### Configuration Options
 
-| Setting                     | Type           | Description                                                                             |
-| --------------------------- | -------------- | --------------------------------------------------------------------------------------- |
-| `workspace.project`         | `string`       | Human-readable name of the project                                                      |
-| `workspace.path`            | `path`         | Path to the directory containing `Cargo.toml` (e.g. `./`, `./crates/foo`, `crates/bar`) |
-| `workspace.exclude.project` | `list`         | Crate names excluded from updates across the entire project _(optional)_                |
-| `workspace.exclude.section` | `mapping`      | Section-specific exclusions (e.g. `dev-dependencies`, table sections) _(optional)_      |
-| `workspace.sub-config`      | `bool`         | Set to `true` if the sub-project provides its own `.rrduconfig` _(default: false)_      |
-| `updater.exclude`           | `list`         | Folders to completely skip during recursive scans _(optional)_                          |
-| `updater.max-lines`         | `int`          | Maximum items displayed per page in interactive mode _(default: 10)_                    |
-| `updater.version`           | `string`       | Version of rrdu the config was created with, used for compatibility checks              |
+| Setting                     | Type      | Description                                                                             |
+| --------------------------- | --------- | --------------------------------------------------------------------------------------- |
+| `workspace.project`         | `string`  | Human-readable name of the project                                                      |
+| `workspace.path`            | `path`    | Path to the directory containing `Cargo.toml` (e.g. `./`, `./crates/foo`, `crates/bar`) |
+| `workspace.exclude.project` | `list`    | Crate names excluded from updates across the entire project _(optional)_                |
+| `workspace.exclude.section` | `mapping` | Section-specific exclusions (e.g. `dev-dependencies`, table sections) _(optional)_      |
+| `workspace.sub-config`      | `bool`    | Set to `true` if the sub-project provides its own `.rrduconfig` _(default: false)_      |
+| `updater.exclude`           | `list`    | Folders to completely skip during recursive scans _(optional)_                          |
+| `updater.max-lines`         | `int`     | Maximum items displayed per page in interactive mode _(default: 10)_                    |
+| `updater.version`           | `string`  | Version of rrdu the config was created with, used for compatibility checks              |
 
 ---
 
