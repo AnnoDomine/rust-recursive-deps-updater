@@ -14,6 +14,8 @@ pub mod logger;
 pub mod registry;
 /// Report storage
 pub mod report;
+/// Update modules.
+pub mod updater;
 /// Workspace project discovery, TOML parsing, and dependency mapping.
 pub mod workspace;
 
