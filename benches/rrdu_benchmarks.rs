@@ -81,9 +81,15 @@ fn bench_semver_classification(c: &mut Criterion) {
 }
 
 /// Generates indexed terminal display items for pagination testing.
-fn generate_terminal_items(size: usize) -> Vec<(usize, String)> {
+fn generate_terminal_items(size: usize) -> Vec<(usize, String, bool)> {
     (0..size)
-        .map(|i| (i + 1, format!("dependency_crate_{:04} v1.{}.0", i, i % 10)))
+        .map(|i| {
+            (
+                i + 1,
+                format!("dependency_crate_{:04} v1.{}.0", i, i % 10),
+                false,
+            )
+        })
         .collect()
 }
 
@@ -105,7 +111,7 @@ fn bench_terminal_pagination_and_lines(c: &mut Criterion) {
                 let current_pos = size / 2;
                 let first = current_pos.saturating_sub(5);
                 let last = (first + 10).min(size);
-                terminal.prepare_paginated_input_line(first, last, current_pos, size);
+                terminal.prepare_paginated_input_line(first, last, current_pos, size, false);
                 for item in &itms[first..last] {
                     let line = terminal.get_selection_line(black_box(item), current_pos);
                     black_box(line);

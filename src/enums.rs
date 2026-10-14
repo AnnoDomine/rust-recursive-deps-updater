@@ -36,7 +36,7 @@ pub enum SubConfig {
 }
 
 /// Primitive boolean enum for clear readability in table and classification displays.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum Boolean {
     /// True value.
     True,
