@@ -13,6 +13,7 @@ use crate::{
     meta_status,
     registry::client::Client,
     simple_status,
+    updater::engine::UpdateEngine,
 };
 use std::{collections::BTreeMap, path::PathBuf};
 use std::{collections::HashMap, fmt::Display};
@@ -217,8 +218,14 @@ impl DependencyEntry {
         }
     }
 
-    /// Helper to extract clean numeric SemVer from strings like "^1.2.3", "~0.3", "1.0"
-    fn parse_base_version(raw: &str) -> Option<semver::Version> {
+    /// Extracts a clean numeric SemVer version from requirement strings like `^1.2.3`, `~0.3`, or `1.0`.
+    ///
+    /// # Arguments
+    /// * `raw` - Raw version specification string from `Cargo.toml`.
+    ///
+    /// # Returns
+    /// An `Option<semver::Version>` if parsing was successful, or `None` if invalid.
+    pub fn parse_base_version(raw: &str) -> Option<semver::Version> {
         let trimmed = raw.trim().trim_start_matches(|c: char| !c.is_ascii_digit());
         let dot_count = trimmed.chars().filter(|&c| c == '.').count();
         let normalized = match dot_count {
@@ -438,6 +445,8 @@ pub struct Projects {
     pub deps: ProjectDependency,
     /// Associated project configuration.
     pub config: ProjectConfig,
+    /// Update engine
+    updater: Option<UpdateEngine>,
 }
 
 impl Display for ProjectDependency {
@@ -470,6 +479,7 @@ impl Projects {
             path: PathBuf::from(config.path.clone()),
             deps: Self::define_deps(is_excuded),
             config: config.clone(),
+            updater: None,
         }
     }
 
