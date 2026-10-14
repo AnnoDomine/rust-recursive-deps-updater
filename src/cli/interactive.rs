@@ -1,9 +1,11 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::{
     enums::*,
     interactivity::terminal::{SpecialInputs, Terminal, TerminalReturn},
     logger::status_codes::Module,
+    meta_status,
+    registry::client::Client,
     simple_status,
     workspace::project::{Projects, Workspace},
 };
@@ -25,7 +27,7 @@ pub struct ViewItem {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ViewItemMeta {
     /// Contains project metadata at the workspace level.
-    Workspace(Projects),
+    Workspace(Box<Projects>),
     /// Contains dependency section map metadata at the project level.
     Project(DependencySectionMap),
     /// Contains dependency entry metadata at the section level.
@@ -38,7 +40,7 @@ pub enum Views {
     /// Top-level workspace overview displaying all member projects.
     Workspace(Box<Workspace>),
     /// Project-level view displaying all dependency sections within a project.
-    Project(Projects),
+    Project(Box<Projects>),
     /// Section-level view displaying all dependencies in a specific section.
     Section {
         /// The dependency section category.
@@ -83,8 +85,8 @@ impl Views {
                         map.push(ViewItem {
                             idx: map.len() + 1,
                             label: p.name.to_string(),
-                            view: Some(Views::Project(p.clone())),
-                            meta: ViewItemMeta::Workspace(p.clone()),
+                            view: Some(Views::Project(Box::new(p.clone()))),
+                            meta: ViewItemMeta::Workspace(Box::new(p.clone())),
                         });
                     }
                 }
@@ -139,6 +141,10 @@ pub struct Interactive {
     pub workspace: Workspace,
     current_view: Views,
     view_history: Vec<Views>,
+    /// Map of fetched dependency collection versions keyed by package name.
+    pub dependencies: HashMap<String, DependencyCollectionVersion>,
+    /// Optional registry client instance used to fetch index, API, and audit information.
+    pub client: Option<Client>,
 }
 
 impl Display for Interactive {
@@ -161,9 +167,15 @@ impl Interactive {
             workspace: workspace.clone(),
             current_view: Views::Workspace(Box::new(workspace.clone())),
             view_history: Vec::new(),
+            dependencies: workspace.collected_deps.clone(),
+            client: workspace.client.clone(),
         }
     }
 
+    /// Constructs the current navigation breadcrumb trail from the view history.
+    ///
+    /// # Returns
+    /// Vector of string labels representing the hierarchical path.
     fn get_history_path(&self) -> Vec<String> {
         let mut history: Vec<String> = self
             .view_history
@@ -177,11 +189,16 @@ impl Interactive {
         history
     }
 
+    /// Transitions to a child view, saving the active view onto the history stack.
+    ///
+    /// # Arguments
+    /// * `next` - The destination view to activate.
     fn change_view(&mut self, next: Views) {
         self.view_history.push(self.current_view.clone());
         self.current_view = next.clone();
     }
 
+    /// Pops the previous view from history and restores it as the current view.
     fn back_to_prev_view(&mut self) {
         if let Some(last) = self.view_history.clone().last()
             && let Some(_) = self.view_history.pop()
@@ -190,22 +207,32 @@ impl Interactive {
         }
     }
 
+    /// Computes the valid interactive keystrokes and operations supported by the current view.
+    ///
+    /// # Returns
+    /// Vector of enabled `SpecialInputs` for this view level.
     fn get_available_inputs(&self) -> Vec<SpecialInputs> {
         match &self.current_view {
             Views::Workspace(_) => vec![SpecialInputs::Select],
             Views::Project(_) => vec![SpecialInputs::Select, SpecialInputs::ViewBack],
-            // TODO: Selecting dependency is currently not enabled as the update system is not integrated. Add `SpecialInputs::Select` when update logic is applied
             Views::Section {
                 section: _,
                 section_dependencies: _,
-            } => vec![SpecialInputs::ViewBack],
-            // TODO: Selecting dependency is currently not enabled as the update system is not integrated. Add `SpecialInputs::Select` when update logic is applied
+            } => vec![
+                SpecialInputs::ViewBack,
+                SpecialInputs::Select,
+                SpecialInputs::Update,
+            ],
             Views::Dependecy { key: _, entry: _ } => {
-                vec![SpecialInputs::ViewBack]
+                vec![SpecialInputs::ViewBack, SpecialInputs::Update]
             }
         }
     }
 
+    /// Returns the prompt instruction text appropriate for the current view.
+    ///
+    /// # Returns
+    /// An instruction string describing the active selection context.
     fn get_instruction(&self) -> String {
         match self.current_view {
             Views::Workspace(_) => String::from("Select project:"),
@@ -218,6 +245,14 @@ impl Interactive {
         }
     }
 
+    /// Truncates a string to a maximum character length, appending an ellipsis if truncated.
+    ///
+    /// # Arguments
+    /// * `string` - The input string slice to format.
+    /// * `max_length` - Maximum permitted character count.
+    ///
+    /// # Returns
+    /// Formatted string fitted within the length constraint.
     fn format_string_with_ellipsis(&self, string: &str, max_length: usize) -> String {
         if string.chars().count() > max_length {
             // We remove 4 chars. Else we have an UI break.
@@ -228,6 +263,14 @@ impl Interactive {
         }
     }
 
+    /// Formats a workspace-level project row showing section counts and total dependencies.
+    ///
+    /// # Arguments
+    /// * `label` - Project name label.
+    /// * `deps` - Parsed project dependency collection.
+    ///
+    /// # Returns
+    /// Formatted row string padded to the column layout.
     fn generate_projects_row(&self, label: &str, deps: ProjectDependency) -> String {
         let element_size: usize = 35;
         let section_label = " Sections: ";
@@ -246,6 +289,14 @@ impl Interactive {
         )
     }
 
+    /// Formats a project-level section row showing supported and total dependency counts.
+    ///
+    /// # Arguments
+    /// * `label` - Section name label.
+    /// * `deps` - Dependency map for this section.
+    ///
+    /// # Returns
+    /// Formatted row string padded to the column layout.
     fn generate_sections_row(&self, label: &str, deps: DependencySectionMap) -> String {
         let element_size: usize = 35;
         let total_deps_label = " Total dependencies: ";
@@ -255,34 +306,33 @@ impl Interactive {
         format!("{label}|{total_deps_label}{deps_counter:.>deps_fill_amount$}")
     }
 
-    fn generate_dependency_row(&self, entry: DependencyEntry) -> String {
-        let latest = self.workspace.collected_deps.get(entry.package());
-        let latest_value: String;
-        let (is_latest, needs_migration, message) = match latest {
-            Some(DependencyCollectionVersion::Latest(l)) => {
-                latest_value = l.to_string();
-                entry.get_dependency_row_valus(Some(l.to_string()))
-            }
-            Some(DependencyCollectionVersion::Error(e)) => {
-                latest_value = e.to_string();
-                entry.get_dependency_row_valus(None)
-            }
-            Some(DependencyCollectionVersion::Excluded) => {
-                latest_value = "Excluded".to_string();
-                entry.get_dependency_row_valus(None)
-            }
-            _ => {
-                latest_value = "Not requested".to_string();
-                entry.get_dependency_row_valus(None)
-            }
-        };
-        let entry_value = if entry.package() == entry.toml_key() {
+    /// Formats a dependency row displaying current version, latest version, SemVer status, and update markers.
+    ///
+    /// # Arguments
+    /// * `entry` - The dependency entry from Cargo.toml.
+    /// * `is_latest` - Whether the dependency is already at the newest version.
+    /// * `needs_migration` - Whether upgrading requires a major/breaking SemVer migration.
+    /// * `message` - Formatted status or error message.
+    /// * `latest_value` - Latest version string or exclusion/error note.
+    ///
+    /// # Returns
+    /// A formatted row string padded to the terminal width.
+    fn generate_dependency_row(
+        &self,
+        entry: DependencyEntry,
+        is_latest: Boolean,
+        needs_migration: Boolean,
+        message: String,
+        latest_value: String,
+    ) -> String {
+        let mut entry_value = if entry.package() == entry.toml_key() {
             entry.package().to_string()
         } else {
             format!("{:} [Key: {:}]", entry.package(), entry.toml_key())
         };
         let mut update_information: Vec<&str> = Vec::new();
         if is_latest.is_false() {
+            entry_value.push('*');
             update_information.push("Update");
         }
         if needs_migration.is_true() {
@@ -305,27 +355,84 @@ impl Interactive {
         )
     }
 
-    fn generate_item_label(&self, item: ViewItem) -> String {
-        match item.meta {
-            ViewItemMeta::Workspace(w) => self.generate_projects_row(&item.label, w.deps),
-            ViewItemMeta::Project(p) => self.generate_sections_row(&item.label, p),
-            ViewItemMeta::Section(s) => self.generate_dependency_row(s),
+    /// Converts view items into selectable row tuples with update capability flags.
+    ///
+    /// # Arguments
+    /// * `items` - Slice of view items for the active menu level.
+    ///
+    /// # Returns
+    /// Vector of `(index, formatted_label, is_updateable)` tuples for terminal rendering.
+    fn parse_updateable_dependencies(&self, items: &Vec<ViewItem>) -> Vec<(usize, String, bool)> {
+        let mut selectable_items: Vec<(usize, String, bool)> = Vec::new();
+        let deps = &self.dependencies;
+        for item in items {
+            match item.meta.clone() {
+                ViewItemMeta::Workspace(w) => selectable_items.push((
+                    item.idx,
+                    self.generate_projects_row(&item.label, w.deps),
+                    false,
+                )),
+                ViewItemMeta::Project(p) => selectable_items.push((
+                    item.idx,
+                    self.generate_sections_row(&item.label, p),
+                    false,
+                )),
+                ViewItemMeta::Section(s) => {
+                    let latest = deps.get(s.package());
+                    let latest_value: String;
+                    let (is_latest, needs_migration, message) = match latest {
+                        Some(DependencyCollectionVersion::Latest(l)) => {
+                            latest_value = l.to_string();
+                            s.get_dependency_row_valus(Some(l.to_string()))
+                        }
+                        Some(DependencyCollectionVersion::Error(e)) => {
+                            latest_value = e.to_string();
+                            s.get_dependency_row_valus(None)
+                        }
+                        Some(DependencyCollectionVersion::Excluded) => {
+                            latest_value = "Excluded".to_string();
+                            s.get_dependency_row_valus(None)
+                        }
+                        _ => {
+                            latest_value = "Not requested".to_string();
+                            s.get_dependency_row_valus(None)
+                        }
+                    };
+                    selectable_items.push((
+                        item.idx,
+                        self.generate_dependency_row(
+                            s,
+                            is_latest,
+                            needs_migration,
+                            message,
+                            latest_value,
+                        ),
+                        is_latest.is_false(),
+                    ));
+                }
+            };
         }
+        selectable_items
     }
 
+    /// Dispatches the active view to the terminal renderer and handles user interaction returns.
     fn apply_view(&mut self) {
         if let Some(config) = &self.workspace.config {
             let items = self.current_view.retreive_select_items();
-            let select_items: Vec<(usize, String)> = items
-                .clone()
-                .iter()
-                .map(|i| (i.idx, self.generate_item_label(i.clone())))
-                .collect();
+            let select_items: Vec<(usize, String, bool)> =
+                self.parse_updateable_dependencies(&items);
             let mut terminal = Terminal::new(config.updater.max_lines);
             terminal.set_path(self.get_history_path());
             terminal.set_instruction(self.get_instruction());
             terminal.set_available_input(self.get_available_inputs());
-            let selection = terminal.render(&select_items);
+            let selection = match &self.current_view {
+                Views::Dependecy { key: _, entry } => terminal.render_dependency(
+                    entry.clone(),
+                    self.dependencies.get(entry.package()),
+                    self.client.clone(),
+                ),
+                _ => terminal.render(&select_items),
+            };
             match selection {
                 Ok(select) => match select {
                     TerminalReturn::SelectItem(idx) => {
@@ -338,7 +445,13 @@ impl Interactive {
                     TerminalReturn::Update(_) => {}
                 },
                 Err(e) => {
-                    println!("{e}");
+                    meta_status!(
+                        log::LevelFilter::Error,
+                        Module::CLI,
+                        501,
+                        "Terminal rendering failed",
+                        e
+                    );
                 }
             }
             self.apply_view();
