@@ -1,0 +1,13 @@
+workspace:
+  - project: rust-recursive-deps-updater
+    path: ./
+    exclude:
+      project:
+        - comfy-table-inline
+        - rustls
+      section: {}
+    sub-config: null
+updater:
+  exclude: []
+  max-lines: 10
+  version: 0.1.0

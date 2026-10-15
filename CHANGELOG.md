@@ -5,6 +5,18 @@ All notable changes to `rust-recursive-deps-updater` (`rrdu`) will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [v0.1.0] - 2026-10-15
+
+### Added
+- **End-to-End Integration Test Suite:** Comprehensive integration tests in `tests/` validating full workflows using `tempfile`:
+  - `tests/e2e_manifest_update.rs`: Verifies manifest editing, atomic replacement on disk, and 100% preservation of comments, whitespaces, and formatting across 8 distinct dependency formats.
+  - `tests/e2e_workspace_discovery.rs`: Verifies recursive multi-crate discovery, `.gitignore`/`.rrduignore` ignore rules, sub-config delegation, and path alignment across nested crates.
+  - `tests/e2e_fixtures_audit.rs`: Verifies SemVer evaluation against real-world offline crates.io index/API fixtures and non-interactive headless table rendering.
+- **Multi-OS Headless CI Verification Workflow:** Added `.github/workflows/rrdu.yml` to automatically verify `--headless` execution on Ubuntu, Windows, and macOS runners.
+
+### Changed
+- **First Stable Release v0.1.0:** Concluded Phase 6 roadmap milestones. Production-ready fast, safe, zero-privilege recursive Cargo dependency updater for Rust workspaces and standalone crates.
+
 ## [v0.0.6] - 2026-10-15
 
 ### Added

@@ -389,11 +389,11 @@ rust-recursive-deps-updater/
 
 ### Phase 6: End-to-End Verification, Fixtures & Release v0.1.0
 
-- [ ] Implement integration tests in `tests/` using `tempfile` against fixture workspaces.
-- [ ] Test headless CI runs (`--headless`) on Linux and Windows.
-- [ ] Verify clean `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo test`.
-- [ ] Verify `cargo-audit` passes with zero vulnerabilities.
-- [ ] Update crate metadata in `Cargo.toml` to `version = "0.1.0"`.
+- [x] Implement integration tests in `tests/` using `tempfile` against fixture workspaces.
+- [x] Test headless CI runs (`--headless`) on Linux and Windows.
+- [x] Verify clean `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo test`.
+- [x] Verify `cargo-audit` passes with zero vulnerabilities.
+- [x] Update crate metadata in `Cargo.toml` to `version = "0.1.0"`.
 - [ ] Tag `v0.1.0` and trigger automated release workflow.
 
 ### Phase 7: Post-v0.1.0 Enhancements
