@@ -4,6 +4,15 @@ As the project may introduce breaking changes during early development, this doc
 
 ---
 
+## Version 0.0.6 to 0.1.0
+
+### Changes in `.rrduconfig`
+
+1. **Full Backwards Compatibility:**  
+   Version 0.1.0 stabilizes the end-to-end integration and verification suites with zero breaking schema changes. All existing `.rrduconfig` configuration files continue to work without modification.
+
+---
+
 ## Version 0.0.5 to 0.0.6
 
 ### Changes in `.rrduconfig`

@@ -17,9 +17,6 @@ Thumbs.db
 *.rej
 *.bk
 
-# .rrduconfig
-.rrduconfig
-
 # mdbook build
 /docs/book
 
