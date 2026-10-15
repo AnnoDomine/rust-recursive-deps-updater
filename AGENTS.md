@@ -65,6 +65,7 @@ This document serves as the single source of truth and directive for all AI agen
   - **Git Operations & Bot Prohibition Rule:** 
     - AI agents and automated tools are **strictly forbidden** from autonomously creating git commits, pushing branches, opening pull requests, or submitting code reviews.
     - All git operations require explicit human confirmation. Autonomous bot PRs or unsolicited AI reviews will be marked as spam and rejected immediately.
+    - **Drafting Pull Request Descriptions:** When requested to draft a pull request description, the agent must save the generated description directly into the file `PREPARED_PR_DESCIPTION.md` in the workspace root, formatted according to `.github/pull_request_template.md`. This file is ignored by `.gitignore` (`PREPARED_PR_*.md`) and serves as an untracked scratchpad for the human developer to review and copy.
 - **AI Assistance, Anti-Vibe-Coding & Anti-Credit-Crawling Policy:**
   - To safeguard this repository against vibe-coding, unverified code bloat, and automated credit crawling, AI assistance is permitted exclusively under the following strict conditions:
     1. **Allowed without watermarking:**
