@@ -17,6 +17,7 @@ All dependencies used in this project are strictly sourced from [crates.io](http
 | [`indicatif`](https://crates.io/crates/indicatif) | `0.18.6` | `MIT` | Progress indicators & spinners | Smooth progress feedback during network queries |
 | [`log`](https://crates.io/crates/log) | `0.4.34` | `Apache-2.0 OR MIT` | Standard logging facade | Modular status codes and diagnostics |
 | [`noyalib`](https://crates.io/crates/noyalib) | `0.0.57` | `Apache-2.0 OR MIT` | YAML 1.2 parser | Pure safe Rust YAML parser (`#![forbid(unsafe_code)]`) |
+| [`rustls`](https://crates.io/crates/rustls) | `0.23.46` | `Apache-2.0 OR ISC OR MIT` | Modern TLS library (`ring`) | Direct security override resolving RUSTSEC advisories with pure-Rust ring backend |
 | [`semver`](https://crates.io/crates/semver) | `1.0.28` | `Apache-2.0 OR MIT` | SemVer parsing & comparison | Official Cargo SemVer comparison logic |
 | [`serde`](https://crates.io/crates/serde) | `1.0.229` | `Apache-2.0 OR MIT` | Generic data serialization (`derive`) | Struct serialization framework |
 | [`serde_json`](https://crates.io/crates/serde_json) | `1.0.154` | `Apache-2.0 OR MIT` | JSON & NDJSON parsing | Parsing sparse index lines, API metadata, and tri-cache |
