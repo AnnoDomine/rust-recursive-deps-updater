@@ -11,7 +11,7 @@ This document serves as the single source of truth and directive for all AI agen
 - Check dependencies exclusively against `crates.io` (ignoring git and path dependencies).
 - Accurately categorize version differences according to Cargo SemVer rules (`[No migration needed]` vs. `[Need manual migration]`).
 - Preserve 100% of formatting, indentation, and comments in `Cargo.toml` files using `toml_edit`.
-- Provide an interactive terminal interface (with pagination, arrow keys `↑`/`↓` for items, `←`/`→` for pages, `Backspace` for previous view, `Esc` or `Ctrl+C` for exit), as well as headless CI execution (`rrdu --headless`). All manifest updates must be explicitly validated and confirmed by the user in interactive mode.
+- Provide an interactive terminal interface (with pagination, arrow keys `↑`/`↓` for items, `PageUp`/`PageDown` for pages, `←`/`→` for tab navigation in detail view, `Backspace` for previous view, `u` for updates, `Esc` or `Ctrl+C` for exit), as well as headless CI execution (`rrdu --headless`). All manifest updates must be explicitly validated and confirmed by the user in interactive mode.
 
 ---
 
@@ -96,23 +96,28 @@ rust-recursive-deps-updater/
 │   ├── main.rs          # #![forbid(unsafe_code)], CLI entry point & dispatcher
 │   ├── cli/             # Interactive prompts, pagination, display, table formatting
 │   ├── config/          # .rrduconfig model, noyalib YAML parsing, path validation
+│   ├── interactivity/   # Raw terminal management, input handlers, and view renderers
 │   ├── logger/          # Trace logging engine, background Tokio worker & status codes
-│   ├── workspace/       # Cargo workspace and crate discovery
 │   ├── registry/        # crates.io API client (ureq + rustls), SemVer classifier
+│   ├── report/          # System diagnostics reporting engine
 │   ├── self_update/     # GitHub Release querying and binary self-replacement
-│   └── updater/         # toml_edit based Cargo.toml writer
+│   ├── updater/         # toml_edit based Cargo.toml writer
+│   └── workspace/       # Cargo workspace and crate discovery
 ├── scripts/             # Developer utility and bundling scripts (bundle_dev.sh)
 ├── tests/               # Integration tests and fixture workspaces
 ├── action.yml           # GitHub Composite Action for the GitHub Marketplace
 ├── .cursorrules         # Cursor IDE directive (points to AGENTS.md)
 ├── .windsurfrules       # Windsurf IDE directive (points to AGENTS.md)
+├── ACCESSIBILITY.md     # Accessibility statement and navigation guide
 ├── AGENTS.md            # This specification document (Single Source of Truth)
+├── CHANGELOG.md         # Keep a Changelog release notes
 ├── CLAUDE.md            # Claude Code directive (points to AGENTS.md)
 ├── Cargo.toml           # Package metadata, GPL-3.0-or-later, dependencies
 ├── CODE_OF_CONDUCT.md   # Contributor Covenant v2.1
 ├── CONTRIBUTING.md       # Contribution guidelines
 ├── GEMINI.md            # Gemini CLI directive (points to AGENTS.md)
 ├── LICENSE              # GNU General Public License v3.0 text
+├── MIGRATION.md         # Configuration schema migration guide
 ├── README.md            # Official user manual and documentation
 ├── ROADMAP.md           # Living design and architecture document
 └── SECURITY.md          # Security policy and disclosure process

@@ -6,7 +6,7 @@
 
 ## Current Test Status
 
-- **Unit Tests:** 46 unit tests covering configuration parsing, path validation, ignore rules, workspace discovery, terminal pagination, domain models, and SemVer categorization.
+- **Unit Tests:** 68 unit tests covering configuration parsing, path validation, ignore rules, workspace discovery, terminal pagination, domain models, SemVer categorization, and comment-preserving manifest updates.
 - **Fixture Tests:** Real-world API response schemas verified against 42 network fixtures across 14 crates.
 - **Safe Execution:** 0 panics, zero `unwrap()` or `expect()` calls in production code paths.
 
@@ -23,6 +23,7 @@
 | Registry Client & Fixtures | `rrdu::registry` | Passing | NDJSON index, Web API, and RustSec advisory validation |
 | Terminal & Pagination | `rrdu::interactivity` | Passing | Sliding-window pagination, line filler padding, key shortcuts |
 | Domain Models & Enums | `rrdu::enums` | Passing | Boolean, section map counts, project dependency metrics |
+| Manifest Updater & Preservation | `rrdu::updater` | Passing | In-place `toml_edit` AST manipulation, atomic manifest writes, comment/formatting preservation |
 
 ---
 

@@ -65,7 +65,7 @@ Include `rrdu` directly in your GitHub Actions workflows:
 - name: Check Rust Dependencies
   uses: AnnoDomine/rust-recursive-deps-updater@v1
   with:
-    run: "scan"
+    version: 'latest' # Optional: pin to a release tag like v0.0.6
 ```
 
 ---
@@ -225,6 +225,7 @@ Contributions are welcome. Please review our:
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) for development workflows, testing, and Conventional Commits.
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community standards.
+- [ACCESSIBILITY.md](ACCESSIBILITY.md) for keyboard navigation standards and screen reader support.
 - [AGENTS.md](AGENTS.md) for architectural guidelines and AI assistant directives.
 
 ### AI Agents & Bot Policy

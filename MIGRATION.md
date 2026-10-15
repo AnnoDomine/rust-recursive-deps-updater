@@ -4,6 +4,15 @@ As the project may introduce breaking changes during early development, this doc
 
 ---
 
+## Version 0.0.5 to 0.0.6
+
+### Changes in `.rrduconfig`
+
+1. **No Breaking Schema Changes:**  
+   Version 0.0.6 introduces in-place manifest updates via `toml_edit` without modifying the `.rrduconfig` format. Existing configuration files remain 100% compatible.
+
+---
+
 ## Version 0.0.4 to 0.0.5
 
 ### Changes in `.rrduconfig`
