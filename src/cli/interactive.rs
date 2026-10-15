@@ -7,6 +7,7 @@ use crate::{
     meta_status,
     registry::client::Client,
     simple_status,
+    updater::engine::{UpdateEngine, UpdaterInformation},
     workspace::project::{Projects, Workspace},
 };
 
@@ -54,6 +55,8 @@ pub enum Views {
         key: String,
         /// Parsed dependency configuration and version details.
         entry: DependencyEntry,
+        /// Updater information to retreive the information for updating a dependency. None if the dependency is not updateable.
+        updater_information: Option<UpdaterInformation>, // String is placeholder till logic is integrated
     },
 }
 
@@ -66,7 +69,11 @@ impl Display for Views {
                 section,
                 section_dependencies: _,
             } => write!(f, "{section}"),
-            Views::Dependecy { key, entry: _ } => write!(f, "{key}"),
+            Views::Dependecy {
+                key,
+                entry: _,
+                updater_information: _,
+            } => write!(f, "{key}"),
         }
     }
 }
@@ -76,7 +83,13 @@ impl Views {
     ///
     /// # Returns
     /// A vector of `ViewItem` elements for menu display.
-    pub fn retreive_select_items(&self) -> Vec<ViewItem> {
+    pub fn retreive_select_items(&self, update_engine: &Option<UpdateEngine>) -> Vec<ViewItem> {
+        simple_status!(
+            log::LevelFilter::Trace,
+            Module::INTERACTIVITY,
+            100,
+            "Generate view items"
+        );
         let mut map: Vec<ViewItem> = Vec::new();
         match self {
             Views::Workspace(workspace) => {
@@ -111,17 +124,31 @@ impl Views {
                 }
             }
             Views::Section {
+                section,
                 section_dependencies: DependencySectionMap::Map(dependencies),
-                ..
             } => {
                 for (dependency, entry) in dependencies {
                     if entry.is_support() {
+                        let updater_information: Option<UpdaterInformation> = update_engine
+                            .as_ref()
+                            .map(|ue| ue.get_updater_information(section.clone(), entry));
+
+                        simple_status!(
+                            log::LevelFilter::Trace,
+                            Module::INTERACTIVITY,
+                            100,
+                            format!(
+                                "Generate section item\n{:?}\n{:?}",
+                                update_engine, updater_information
+                            )
+                        );
                         map.push(ViewItem {
                             idx: map.len() + 1,
                             label: dependency.to_string(),
                             view: Some(Views::Dependecy {
                                 key: dependency.to_string(),
                                 entry: entry.clone(),
+                                updater_information,
                             }),
                             meta: ViewItemMeta::Section(entry.clone()),
                         });
@@ -145,6 +172,8 @@ pub struct Interactive {
     pub dependencies: HashMap<String, DependencyCollectionVersion>,
     /// Optional registry client instance used to fetch index, API, and audit information.
     pub client: Option<Client>,
+    /// Project integrated update engine
+    active_update_engine: Option<UpdateEngine>,
 }
 
 impl Display for Interactive {
@@ -169,6 +198,7 @@ impl Interactive {
             view_history: Vec::new(),
             dependencies: workspace.collected_deps.clone(),
             client: workspace.client.clone(),
+            active_update_engine: None,
         }
     }
 
@@ -189,6 +219,14 @@ impl Interactive {
         history
     }
 
+    fn set_update_engine(&mut self, view: &Views) {
+        match view {
+            Views::Workspace(_) => self.active_update_engine = None,
+            Views::Project(p) => self.active_update_engine = p.updater.clone(),
+            _ => {}
+        }
+    }
+
     /// Transitions to a child view, saving the active view onto the history stack.
     ///
     /// # Arguments
@@ -196,6 +234,7 @@ impl Interactive {
     fn change_view(&mut self, next: Views) {
         self.view_history.push(self.current_view.clone());
         self.current_view = next.clone();
+        self.set_update_engine(&next);
     }
 
     /// Pops the previous view from history and restores it as the current view.
@@ -204,6 +243,7 @@ impl Interactive {
             && let Some(_) = self.view_history.pop()
         {
             self.current_view = last.clone();
+            self.set_update_engine(last);
         }
     }
 
@@ -223,8 +263,16 @@ impl Interactive {
                 SpecialInputs::Select,
                 SpecialInputs::Update,
             ],
-            Views::Dependecy { key: _, entry: _ } => {
-                vec![SpecialInputs::ViewBack, SpecialInputs::Update]
+            Views::Dependecy {
+                key: _,
+                entry: _,
+                updater_information,
+            } => {
+                if updater_information.is_some() {
+                    vec![SpecialInputs::ViewBack, SpecialInputs::Update]
+                } else {
+                    vec![SpecialInputs::ViewBack]
+                }
             }
         }
     }
@@ -241,7 +289,11 @@ impl Interactive {
                 section: _,
                 section_dependencies: _,
             } => String::from("Select dependency:"),
-            Views::Dependecy { key: _, entry: _ } => String::new(),
+            Views::Dependecy {
+                key: _,
+                entry: _,
+                updater_information: _,
+            } => String::new(),
         }
     }
 
@@ -355,6 +407,72 @@ impl Interactive {
         )
     }
 
+    fn update_in_history(&mut self, updater_information: UpdaterInformation) {
+        let Some(latest) = updater_information.get_latest() else {
+            return;
+        };
+
+        let mut updated_section: Option<DependencySectionMap> = None;
+        let mut updated_project: Option<Projects> = None;
+
+        match &mut self.current_view {
+            Views::Dependecy { entry, .. } => {
+                entry.update_in_entry(&latest);
+            }
+            Views::Section {
+                section,
+                section_dependencies,
+            } => {
+                if let DependencySectionMap::Map(deps) = section_dependencies
+                    && let Some(entry) = deps.get_mut(&updater_information.toml_key)
+                    && section == &updater_information.section
+                {
+                    entry.update_in_entry(&latest);
+                    updated_section = Some(section_dependencies.clone());
+                }
+            }
+            _ => {}
+        }
+
+        for view in self.view_history.iter_mut().rev() {
+            match view {
+                Views::Project(p) => {
+                    if let Some(sec_deps) = &updated_section {
+                        p.deps.update_in_project(
+                            updater_information.section.clone(),
+                            sec_deps.clone(),
+                        );
+                    }
+                    if let Some(engine) = &self.active_update_engine {
+                        p.updater = Some(engine.clone());
+                    }
+                    updated_project = Some((**p).clone());
+                }
+                Views::Workspace(w) => {
+                    if let Some(proj) = &updated_project {
+                        w.update_in_workspace(proj);
+                    }
+                }
+                Views::Section {
+                    section,
+                    section_dependencies,
+                } => {
+                    if let DependencySectionMap::Map(deps) = section_dependencies
+                        && let Some(entry) = deps.get_mut(&updater_information.toml_key)
+                        && section == &updater_information.section
+                    {
+                        entry.update_in_entry(&latest);
+                        updated_section = Some(section_dependencies.clone());
+                    }
+                }
+                _ => {}
+            }
+        }
+        if let Some(proj) = &updated_project {
+            self.workspace.update_in_workspace(proj);
+        }
+    }
+
     /// Converts view items into selectable row tuples with update capability flags.
     ///
     /// # Arguments
@@ -362,20 +480,29 @@ impl Interactive {
     ///
     /// # Returns
     /// Vector of `(index, formatted_label, is_updateable)` tuples for terminal rendering.
-    fn parse_updateable_dependencies(&self, items: &Vec<ViewItem>) -> Vec<(usize, String, bool)> {
-        let mut selectable_items: Vec<(usize, String, bool)> = Vec::new();
+    fn parse_updateable_dependencies(
+        &self,
+        items: &Vec<ViewItem>,
+    ) -> Vec<(usize, String, Option<UpdaterInformation>)> {
+        simple_status!(
+            log::LevelFilter::Trace,
+            Module::INTERACTIVITY,
+            100,
+            "Parse items"
+        );
+        let mut selectable_items: Vec<(usize, String, Option<UpdaterInformation>)> = Vec::new();
         let deps = &self.dependencies;
         for item in items {
             match item.meta.clone() {
                 ViewItemMeta::Workspace(w) => selectable_items.push((
                     item.idx,
                     self.generate_projects_row(&item.label, w.deps),
-                    false,
+                    None,
                 )),
                 ViewItemMeta::Project(p) => selectable_items.push((
                     item.idx,
                     self.generate_sections_row(&item.label, p),
-                    false,
+                    None,
                 )),
                 ViewItemMeta::Section(s) => {
                     let latest = deps.get(s.package());
@@ -398,6 +525,32 @@ impl Interactive {
                             s.get_dependency_row_valus(None)
                         }
                     };
+                    let update_information: Option<UpdaterInformation> =
+                        if let Some(Views::Dependecy {
+                            updater_information,
+                            ..
+                        }) = &item.view
+                            && let Some(information) = &updater_information
+                            && is_latest.is_false()
+                            && let Some(DependencyCollectionVersion::Latest(l)) = latest
+                            && let Some(version) = DependencyEntry::parse_base_version(l)
+                        {
+                            let mut info = information.clone();
+                            info.set_latest(&version.to_string());
+                            Some(info)
+                        } else {
+                            None
+                        };
+                    simple_status!(
+                        log::LevelFilter::Trace,
+                        Module::INTERACTIVITY,
+                        100,
+                        format!(
+                            "Generate dependency item: {:}\n{:?}",
+                            s.package(),
+                            update_information
+                        )
+                    );
                     selectable_items.push((
                         item.idx,
                         self.generate_dependency_row(
@@ -407,7 +560,7 @@ impl Interactive {
                             message,
                             latest_value,
                         ),
-                        is_latest.is_false(),
+                        update_information,
                     ));
                 }
             };
@@ -418,18 +571,25 @@ impl Interactive {
     /// Dispatches the active view to the terminal renderer and handles user interaction returns.
     fn apply_view(&mut self) {
         if let Some(config) = &self.workspace.config {
-            let items = self.current_view.retreive_select_items();
-            let select_items: Vec<(usize, String, bool)> =
+            let items = self
+                .current_view
+                .retreive_select_items(&self.active_update_engine);
+            let select_items: Vec<(usize, String, Option<UpdaterInformation>)> =
                 self.parse_updateable_dependencies(&items);
             let mut terminal = Terminal::new(config.updater.max_lines);
             terminal.set_path(self.get_history_path());
             terminal.set_instruction(self.get_instruction());
             terminal.set_available_input(self.get_available_inputs());
             let selection = match &self.current_view {
-                Views::Dependecy { key: _, entry } => terminal.render_dependency(
+                Views::Dependecy {
+                    key: _,
+                    entry,
+                    updater_information,
+                } => terminal.render_dependency(
                     entry.clone(),
                     self.dependencies.get(entry.package()),
                     self.client.clone(),
+                    &mut updater_information.clone(),
                 ),
                 _ => terminal.render(&select_items),
             };
@@ -442,7 +602,33 @@ impl Interactive {
                         }
                     }
                     TerminalReturn::PrevView => self.back_to_prev_view(),
-                    TerminalReturn::Update(_) => {}
+                    TerminalReturn::Update(information) => {
+                        if let Some(engine) = &mut self.active_update_engine
+                            && let Some(info) = &information
+                        {
+                            engine.update_dependency(info);
+                            match engine.save() {
+                                Ok(_) => {
+                                    simple_status!(
+                                        log::LevelFilter::Trace,
+                                        Module::INTERACTIVITY,
+                                        200,
+                                        "Dependency updated. Starting view updates."
+                                    );
+                                    self.update_in_history(info.clone());
+                                }
+                                Err(e) => {
+                                    meta_status!(
+                                        log::LevelFilter::Error,
+                                        Module::INTERACTIVITY,
+                                        500,
+                                        "Dependency updated failes.",
+                                        e
+                                    );
+                                }
+                            }
+                        }
+                    }
                 },
                 Err(e) => {
                     meta_status!(

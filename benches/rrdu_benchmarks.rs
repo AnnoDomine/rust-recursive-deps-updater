@@ -19,6 +19,7 @@ use rrdu::{
     config::{model::*, rrdu_config::RrduConfig},
     enums::*,
     interactivity::terminal::Terminal,
+    updater::engine::UpdaterInformation,
 };
 
 /// Evaluation sample sizes requested for performance profiling.
@@ -81,13 +82,13 @@ fn bench_semver_classification(c: &mut Criterion) {
 }
 
 /// Generates indexed terminal display items for pagination testing.
-fn generate_terminal_items(size: usize) -> Vec<(usize, String, bool)> {
+fn generate_terminal_items(size: usize) -> Vec<(usize, String, Option<UpdaterInformation>)> {
     (0..size)
         .map(|i| {
             (
                 i + 1,
                 format!("dependency_crate_{:04} v1.{}.0", i, i % 10),
-                false,
+                None,
             )
         })
         .collect()

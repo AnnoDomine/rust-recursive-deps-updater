@@ -170,6 +170,38 @@ impl DependencyEntry {
         matches!(self.version(), DependencyVersion::Supported(_))
     }
 
+    /// Extracts the SemVer operator prefix (e.g. `^`, `~`, `=`) from the dependency version.
+    ///
+    /// # Returns
+    /// An `Option<String>` containing the operator prefix, or `None` if absent.
+    pub fn get_version_prefix(&self) -> Option<String> {
+        let raw_version = self.version();
+        if let DependencyVersion::Supported(v) = raw_version {
+            let major: &str = v.split('.').collect::<Vec<&str>>()[0];
+            let prefix = major.trim().trim_matches(|c: char| c.is_ascii_digit());
+            if !prefix.is_empty() {
+                return Some(prefix.to_string());
+            }
+        }
+        None
+    }
+
+    /// Updates the dependency version in-place to the new target version.
+    ///
+    /// # Arguments
+    /// * `new_version` - The formatted new version string.
+    ///
+    /// # Returns
+    /// A reference to self.
+    pub fn update_in_entry(&mut self, new_version: &str) -> &Self {
+        match self {
+            Self::Simple(d) => d.version = DependencyVersion::Supported(new_version.to_string()),
+            Self::Inline(d) => d.version = DependencyVersion::Supported(new_version.to_string()),
+            Self::Table(d) => d.version = DependencyVersion::Supported(new_version.to_string()),
+        };
+        self
+    }
+
     /// Return the values needed for the DEPENDENCY row inside the CI and the CLI
     ///
     /// # Arguments
@@ -446,7 +478,7 @@ pub struct Projects {
     /// Associated project configuration.
     pub config: ProjectConfig,
     /// Update engine
-    updater: Option<UpdateEngine>,
+    pub updater: Option<UpdateEngine>,
 }
 
 impl Display for ProjectDependency {
@@ -644,6 +676,7 @@ impl Projects {
     }
 
     fn collect_sections(&mut self, toml_doc: DocumentMut) {
+        self.updater = Some(UpdateEngine::new(toml_doc.clone(), self.path.clone()));
         let k = &toml_doc
             .iter()
             .map(|(k, v)| (k.to_string(), v.clone()))
@@ -899,6 +932,20 @@ impl Workspace {
             client.map_latest_by_api(&mut self.collected_deps, is_headless);
         }
         self.client = Some(client.clone());
+    }
+
+    /// Synchronizes a modified project into the workspace collection.
+    ///
+    /// # Arguments
+    /// * `project` - The updated project model.
+    pub fn update_in_workspace(&mut self, project: &Projects) {
+        if let Some(pro) = self
+            .projects
+            .iter_mut()
+            .find(|p| p.name == project.name && p.path == project.path)
+        {
+            *pro = project.clone();
+        };
     }
 }
 
