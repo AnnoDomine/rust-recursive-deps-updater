@@ -23,3 +23,4 @@
 
 - [Test Results](test_results.md): Overview of unit testing, integration tests, and CI test matrices.
 - [Benchmarks](benchmarks.md): Performance benchmarks and Criterion test results.
+- [Security Policy](security.md): Security architecture, zero-privilege guarantees, and vulnerability disclosure.

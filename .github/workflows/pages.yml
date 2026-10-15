@@ -34,10 +34,12 @@ jobs:
       - name: Create benchmark report (Criterion)
         run: cargo bench --bench rrdu_benchmarks
 
-      - name: Copy changelog and migration to docs
+      - name: Copy root markdowns to docs
         run: |
           cp CHANGELOG.md docs/src/history/changelog.md
           cp MIGRATION.md docs/src/history/migration.md
+          cp ACCESSIBILITY.md docs/src/accessibility.md
+          cp SECURITY.md docs/src/quality/security.md
 
       - name: Install mdBook & preprocessors
         uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
