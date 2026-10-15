@@ -394,7 +394,7 @@ rust-recursive-deps-updater/
 - [x] Verify clean `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo test`.
 - [x] Verify `cargo-audit` passes with zero vulnerabilities.
 - [x] Update crate metadata in `Cargo.toml` to `version = "0.1.0"`.
-- [ ] Tag `v0.1.0` and trigger automated release workflow.
+- [x] Tag `v0.1.0` and trigger automated release workflow.
 
 ### Phase 7: Post-v0.1.0 Enhancements
 
