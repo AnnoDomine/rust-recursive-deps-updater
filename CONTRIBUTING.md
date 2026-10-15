@@ -34,7 +34,13 @@ git config core.hooksPath .githooks
 ```
 The hooks run `cargo fmt --check`, `cargo clippy`, `cargo test`, and validate Conventional Commits on every commit.
 
-### 3. Create a Feature Branch
+### 3. Initialize Development Environment
+Run the setup script to verify the required Rust toolchain, install development CLI tools (`mdbook`, `mdbook-variables`, `cargo-audit`), and execute initial verification:
+```sh
+./scripts/init_dev_environment.sh
+```
+
+### 4. Create a Feature Branch
 Create a branch named after the feature or fix you are working on:
 ```sh
 git checkout -b feat/your-feature-name

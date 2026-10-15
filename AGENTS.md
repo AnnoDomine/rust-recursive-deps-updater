@@ -104,7 +104,7 @@ rust-recursive-deps-updater/
 │   ├── self_update/     # GitHub Release querying and binary self-replacement
 │   ├── updater/         # toml_edit based Cargo.toml writer
 │   └── workspace/       # Cargo workspace and crate discovery
-├── scripts/             # Developer utility and bundling scripts (bundle_dev.sh)
+├── scripts/             # Developer utility and bundling scripts (bundle_dev.sh, init_dev_environment.sh)
 ├── tests/               # Integration tests and fixture workspaces
 ├── action.yml           # GitHub Composite Action for the GitHub Marketplace
 ├── .cursorrules         # Cursor IDE directive (points to AGENTS.md)
