@@ -13,17 +13,21 @@ All dependencies used in this project are strictly sourced from [crates.io](http
 | [`clap`](https://crates.io/crates/clap) | `4.6.7` | `Apache-2.0 OR MIT` | Command-line argument parsing (`derive`) | Standard robust CLI flag parser |
 | [`colored`](https://crates.io/crates/colored) | `3.1.1` | `MPL-2.0` | ANSI terminal color styling | Intuitive terminal text coloring |
 | [`comfy-table-inline`](https://crates.io/crates/comfy-table-inline) (aliased as `comfy-table`) | `8.0.2` | `MPL-2.0` | Terminal table rendering | **Custom release:** Based on `comfy-table`, integrating native inline table support while configuring `Table::force_no_tty` by default for safe Rust |
+| [`dialoguer`](https://crates.io/crates/dialoguer) | `0.12.0` | `MIT` | Interactive terminal prompts & raw TTY abstractions | Rich menu select navigation in interactive mode |
 | [`indicatif`](https://crates.io/crates/indicatif) | `0.18.6` | `MIT` | Progress indicators & spinners | Smooth progress feedback during network queries |
 | [`log`](https://crates.io/crates/log) | `0.4.34` | `Apache-2.0 OR MIT` | Standard logging facade | Modular status codes and diagnostics |
-| [`noyalib`](https://crates.io/crates/noyalib) | `0.0.55` | `Apache-2.0 OR MIT` | YAML 1.2 parser | Pure safe Rust YAML parser (`#![forbid(unsafe_code)]`) |
+| [`noyalib`](https://crates.io/crates/noyalib) | `0.0.57` | `Apache-2.0 OR MIT` | YAML 1.2 parser | Pure safe Rust YAML parser (`#![forbid(unsafe_code)]`) |
 | [`semver`](https://crates.io/crates/semver) | `1.0.28` | `Apache-2.0 OR MIT` | SemVer parsing & comparison | Official Cargo SemVer comparison logic |
 | [`serde`](https://crates.io/crates/serde) | `1.0.229` | `Apache-2.0 OR MIT` | Generic data serialization (`derive`) | Struct serialization framework |
-| [`serde_json`](https://crates.io/crates/serde_json) | `1.0.151` | `Apache-2.0 OR MIT` | JSON & NDJSON parsing | Parsing sparse index lines, API metadata, and tri-cache |
+| [`serde_json`](https://crates.io/crates/serde_json) | `1.0.154` | `Apache-2.0 OR MIT` | JSON & NDJSON parsing | Parsing sparse index lines, API metadata, and tri-cache |
 | [`simple_logger`](https://crates.io/crates/simple_logger) | `5.2.0` | `MIT` | Logger implementation | Timestamped console and file logging |
+| [`sysinfo`](https://crates.io/crates/sysinfo) | `0.39.6` | `MIT` | System information gathering | Environment inspection for privacy-sanitized diagnostic reports |
 | [`thiserror`](https://crates.io/crates/thiserror) | `2.0.21` | `Apache-2.0 OR MIT` | Ergonomic domain errors | Typed error hierarchies without panics |
 | [`time`](https://crates.io/crates/time) | `0.3.55` | `Apache-2.0 OR MIT` | Timestamp formatting | Precise formatted timestamps for logging and caching |
-| [`toml_edit`](https://crates.io/crates/toml_edit) | `0.25.16` | `Apache-2.0 OR MIT` | TOML AST parser and writer | Format-preserving manifest updater keeping all comments and indentation intact |
+| [`tokio`](https://crates.io/crates/tokio) | `1.53.3` | `MIT` | Asynchronous multi-threaded runtime (`full`) | Background trace logging worker and asynchronous tasks |
+| [`toml_edit`](https://crates.io/crates/toml_edit) | `0.25.17` | `Apache-2.0 OR MIT` | TOML AST parser and writer | Format-preserving manifest updater keeping all comments and indentation intact |
 | [`ureq`](https://crates.io/crates/ureq) | `3.4.2` | `Apache-2.0 OR MIT` | Synchronous HTTP client (`rustls`, `json`) | Memory-safe HTTPS network client without OpenSSL dependencies |
+| [`usize-conv`](https://crates.io/crates/usize-conv) | `0.1.1` | `MIT OR Apache-2.0` | Integer & usize conversion | Safe numerical conversions across word sizes |
 
 ---
 

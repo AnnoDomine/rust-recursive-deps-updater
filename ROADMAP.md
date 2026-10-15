@@ -378,14 +378,14 @@ rust-recursive-deps-updater/
 - [x] Fix sub-config bug from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/10).
 - [x] Fix UI bug (invalid deps) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/11).
 - [x] Fix Terminal bug (blocking lines) from [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/13).
-- [ ] Implement `src/updater/toml_writer.rs` using `toml_edit`.
-- [ ] Support standard string versions (`dep = "1.0"`).
-- [ ] Support inline table dependencies (`dep = { version = "1.0", features = [...] }`).
-- [ ] Support central `[workspace.dependencies]` updates.
-- [ ] Ensure 100% preservation of comments, whitespaces, and indentation.
-- [ ] Unit and fixture tests verifying comment preservation.
-- [ ] Re-enable interactive dependency selection (`SpecialInputs::Select` in `Views::Dependecy`) and wire key `u` to the manifest updater.
-- [ ] Add ACCESSIBILITY.md
+- [x] Implement `src/updater/` (`UpdateEngine`) using `toml_edit`.
+- [x] Support standard string versions (`dep = "1.0"`).
+- [x] Support inline table dependencies (`dep = { version = "1.0", features = [...] }`).
+- [x] Support central `[workspace.dependencies]` updates.
+- [x] Ensure 100% preservation of comments, whitespaces, and indentation.
+- [x] Unit and fixture tests verifying comment preservation.
+- [x] Re-enable interactive dependency selection (`SpecialInputs::Select` in `Views::Dependecy`) and wire key `u` to the manifest updater.
+- [x] Add ACCESSIBILITY.md
 
 ### Phase 6: End-to-End Verification, Fixtures & Release v0.1.0
 
