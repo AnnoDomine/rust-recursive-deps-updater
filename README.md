@@ -25,7 +25,7 @@
 
 ---
 
-> This project is currently in an early state. The current version can have breaking changes.  
+> This project is in ongoing development. New versions can have breaking changes.  
 > We provide an explaining [migration guide](./MIGRATION.md).
 
 ## Features
