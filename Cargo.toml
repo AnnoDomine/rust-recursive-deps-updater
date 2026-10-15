@@ -45,6 +45,14 @@ usize-conv = { version = "0.1.1", features = ["from_usize"] }
 tempfile = "3.27.0"
 criterion = "0.8.2"
 
+# Override the rustls version from ureq.
+# rustls in the version ureq includes have rustsec entries.
+# TODO: Remove after ureq updated dependency internal.
+[dependencies.rustls]
+version = "0.23.46"
+default-features = false
+features = ["ring", "std", "tls12", "logging"]
+
 [[bench]]
 name = "rrdu_benchmarks"
 harness = false
