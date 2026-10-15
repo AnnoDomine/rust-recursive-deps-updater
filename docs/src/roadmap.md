@@ -49,6 +49,7 @@ This document outlines the milestones, current progress, and upcoming engineerin
 - [x] Full preservation of comments, whitespace, indentation, and inline tables.
 - [x] Workspace-level dependency updates (`[workspace.dependencies]`).
 - [x] Re-enable interactive dependency selection (`SpecialInputs::Select` in `Views::Dependecy`) and wire key `u`.
+- [x] Add accessibility statement (`ACCESSIBILITY.md`).
 
 ### Phase 6: End-to-End Verification, Fixtures & Release v0.1.0
 - [ ] Integration test suite in `tests/` using `tempfile`.

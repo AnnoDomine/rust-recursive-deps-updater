@@ -41,7 +41,7 @@ You can integrate `rrdu` directly into your GitHub Actions CI/CD workflows:
 - name: Check Rust Dependencies
   uses: AnnoDomine/rust-recursive-deps-updater@v1
   with:
-    run: "scan"
+    version: 'latest' # Optional: pin to a release tag like v0.0.6
 ```
 
 For security, pinning to full immutable commit SHAs is recommended.

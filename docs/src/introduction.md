@@ -28,7 +28,7 @@
 
 ## Current State and Integrated Handlings
 
-`rrdu` is currently under active pre-release development. Fundamental components including recursive workspace discovery, scoped ignore rules, registry index queries, tri-caching, and SemVer classification are fully implemented and covered by unit tests. Interactive terminal navigation and comment-preserving manifest updates are actively being integrated.
+`rrdu` (version `{{RRDU_VERSION}}`) is currently under active pre-release development. Fundamental components including recursive workspace discovery, scoped ignore rules, registry index queries, tri-caching, SemVer classification, interactive terminal navigation, and comment-preserving manifest updates (`toml_edit`) are fully implemented and covered by unit tests.
 
 > Detailed information regarding completed milestones and upcoming implementations can be found in the [Pre-Release Roadmap](roadmap.md).
 

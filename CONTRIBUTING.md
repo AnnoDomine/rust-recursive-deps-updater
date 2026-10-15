@@ -76,7 +76,7 @@ meta_status!(
 );
 ```
 
-Available modules (`Module::CONFIGURATION`, `Module::WORKSPACE`, `Module::REGISTRYCLIENT`, `Module::CACHE`, `Module::UPDATER`, `Module::CLI`) and hierarchical status code ranges (`1YXX` - `6YXX`) ensure clean and uniform logging across all crates and execution modes.
+Available modules (`Module::CONFIGURATION`, `Module::WORKSPACE`, `Module::DISCOVERY`, `Module::REGISTRYCLIENT`, `Module::UPDATER`, `Module::CACHE`, `Module::CLI`, `Module::INTERACTIVITY`) and hierarchical status code ranges (`1YXX` - `8YXX`) ensure clean and uniform logging across all crates and execution modes.
 
 ---
 

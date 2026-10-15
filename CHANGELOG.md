@@ -5,6 +5,20 @@ All notable changes to `rust-recursive-deps-updater` (`rrdu`) will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [v0.0.6] - 2026-10-15
+
+### Added
+- **Comment-Preserving Manifest Updates:** In-place `Cargo.toml` dependency updating engine (`src/updater/engine.rs`) powered by `toml_edit`, supporting standard version strings, inline table dependencies (`{ version = "...", features = [...] }`), and workspace-level dependencies (`[workspace.dependencies]`) with 100% preservation of formatting, indentation, and comments.
+- **Interactive Update Trigger:** Wired keyboard input `u` in terminal views to interactively update selected dependency requirements with automatic cascading history updates.
+- **Accessibility Statement (`ACCESSIBILITY.md`):** Comprehensive digital accessibility documentation covering keyboard navigation standards, screen reader compatibility via `--headless`, cognitive predictability, and feedback reporting.
+- **Dynamic mdBook Versioning:** Integrated `mdbook-variables` preprocessor supporting dynamic `{{RRDU_VERSION}}` placeholder substitution from the build environment.
+
+### Changed
+- **Composite Action Parameter Cleanup:** Removed the legacy `config` input from `action.yml`, standardizing on directory-local `.rrduconfig` manifests or in-memory auto-discovery.
+
+### Security
+- **Remediated Transitive `rustls` Advisories:** Upgraded `rustls` to `0.23.46` in `Cargo.lock` addressing RUSTSEC-2026-0346, RUSTSEC-2026-0347, RUSTSEC-2026-0348, and RUSTSEC-2026-0349.
+
 ## [v0.0.5] - 2026-10-11
 
 ### Added
