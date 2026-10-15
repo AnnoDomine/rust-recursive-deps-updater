@@ -172,6 +172,21 @@ impl DependencySectionMap {
     pub fn is_valid_section(&self) -> bool {
         self.count_supported_deps() > 0
     }
+
+    /// Updates or inserts a dependency entry in this section map.
+    ///
+    /// # Arguments
+    /// * `entry` - The updated dependency entry.
+    ///
+    /// # Returns
+    /// A reference to self.
+    pub fn update_in_section(&mut self, entry: DependencyEntry) -> &Self {
+        if let DependencySectionMap::Map(deps) = self {
+            deps.insert(entry.toml_key().to_string(), entry);
+        };
+
+        self
+    }
 }
 
 /// Map of all dependency sections in a project.
@@ -233,6 +248,28 @@ impl ProjectDependency {
     /// `true` if the project has supported dependencies.
     pub fn is_valid_project(&self) -> bool {
         self.count_supported_total_values() > 0
+    }
+
+    /// Updates the dependency map for a given section in the project.
+    ///
+    /// # Arguments
+    /// * `section` - Target dependency section.
+    /// * `deps` - Updated section dependencies.
+    ///
+    /// # Returns
+    /// A reference to self.
+    pub fn update_in_project(
+        &mut self,
+        section: DependencySection,
+        deps: DependencySectionMap,
+    ) -> &Self {
+        if let ProjectDependency::Map(p_sec) = self
+            && p_sec.get(&section).is_some()
+        {
+            p_sec.insert(section, deps);
+        }
+
+        self
     }
 }
 

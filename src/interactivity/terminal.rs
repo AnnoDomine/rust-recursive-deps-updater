@@ -18,6 +18,7 @@ use crate::{
         rust_sec_json_response_structs::{Affected, RustsecItem},
     },
     simple_status,
+    updater::engine::UpdaterInformation,
 };
 
 /// Represents the outcome of an interactive terminal navigation or selection action.
@@ -27,7 +28,7 @@ pub enum TerminalReturn {
     /// An item was selected by index.
     SelectItem(usize),
     /// An update command was invoked for the item at the specified index.
-    Update(usize),
+    Update(Option<UpdaterInformation>),
 }
 
 /// Identifies supported keyboard and navigation actions available in a terminal view.
@@ -245,7 +246,11 @@ impl Terminal {
     ///
     /// # Returns
     /// The formatted terminal row string.
-    pub fn get_selection_line(&self, item: &(usize, String, bool), highlighted: usize) -> String {
+    pub fn get_selection_line(
+        &self,
+        item: &(usize, String, Option<UpdaterInformation>),
+        highlighted: usize,
+    ) -> String {
         let (prefix, suffix) = if item.0 == highlighted + 1 {
             (format!("|-> {:} ", item.0), " <-|")
         } else {
@@ -374,11 +379,11 @@ impl Terminal {
     fn is_updateable_highlighted(
         &self,
         highlighted: &usize,
-        items: &[(usize, String, bool)],
+        items: &[(usize, String, Option<UpdaterInformation>)],
     ) -> bool {
         items
             .iter()
-            .find(|(idx, _, updateable)| *idx == (highlighted + 1) && *updateable)
+            .find(|(idx, _, updateable)| *idx == (highlighted + 1) && updateable.is_some())
             .is_some()
     }
 
@@ -1036,6 +1041,7 @@ impl Terminal {
         total_lines: usize,
         current_page: &str,
         client_lines: ClientInformationLines,
+        is_updateable: bool,
     ) {
         let mut available = self.available_inputs.clone();
         let has_prev_tab =
@@ -1056,6 +1062,9 @@ impl Terminal {
         if has_next_tab {
             available.push(SpecialInputs::TabRight);
         };
+        if is_updateable {
+            available.push(SpecialInputs::Updateable);
+        }
         self.generate_dependency_input_lines(available);
     }
 
@@ -1076,6 +1085,7 @@ impl Terminal {
         item: DependencyEntry,
         latest: Option<&DependencyCollectionVersion>,
         client: Option<Client>,
+        update_information: &mut Option<UpdaterInformation>,
     ) -> io::Result<TerminalReturn> {
         let selection: TerminalReturn;
         let entry_lines = self.generate_entry_inforamtion(item.clone());
@@ -1092,6 +1102,14 @@ impl Terminal {
             Some(DependencyCollectionVersion::Excluded) => item.get_dependency_row_valus(None),
             _ => item.get_dependency_row_valus(None),
         };
+
+        if let Some(information) = update_information
+            && is_latest.is_false()
+            && let Some(DependencyCollectionVersion::Latest(l)) = latest
+            && let Some(version) = DependencyEntry::parse_base_version(l)
+        {
+            information.set_latest(&version.to_string());
+        }
 
         let entry_info = format!(
             "Information: {:} | Updateable: {:5} | Possible requires migration: {:5}",
@@ -1118,6 +1136,7 @@ impl Terminal {
                 scrollable_len,
                 &selected_page,
                 client_information.clone(),
+                update_information.is_some() && is_latest.is_false(),
             );
             term.write_line(&self.get_terminal_section_seperator())?;
             term.write_line(&self.menu_path.join(" -> "))?;
@@ -1316,12 +1335,24 @@ impl Terminal {
                     }
                 }
                 // Update selected
-                // Key::Char('u') => {
-                //     if self.is_input_included(SpecialInputs::Update) {
-                //         selection = TerminalReturn::Update(highlighted);
-                //         break;
-                //     }
-                // }
+                Key::Char('u') => {
+                    simple_status!(
+                        log::LevelFilter::Trace,
+                        Module::INTERACTIVITY,
+                        209,
+                        format!(
+                            "Update requested for item {:} (Key 'u')\n{:?}",
+                            item.toml_key(),
+                            update_information
+                        )
+                    );
+                    if self.is_input_included(SpecialInputs::Update) && update_information.is_some()
+                    {
+                        selection = TerminalReturn::Update(update_information.clone());
+                        term.clear_screen()?;
+                        break;
+                    }
+                }
                 // Clean quit
                 Key::CtrlC => {
                     Self::leave_alternate_screen()?;
@@ -1348,7 +1379,10 @@ impl Terminal {
     ///
     /// # Errors
     /// Returns [`io::Error`] if terminal I/O fails.
-    pub fn render(&mut self, items: &[(usize, String, bool)]) -> io::Result<TerminalReturn> {
+    pub fn render(
+        &mut self,
+        items: &[(usize, String, Option<UpdaterInformation>)],
+    ) -> io::Result<TerminalReturn> {
         let selection: TerminalReturn;
         let items_len = items.len();
         let mut highlighted: usize = 0;
@@ -1527,14 +1561,19 @@ impl Terminal {
                 }
                 // Update selected
                 Key::Char('u') => {
-                    if self.is_input_included(SpecialInputs::Update) {
-                        simple_status!(
-                            log::LevelFilter::Trace,
-                            Module::INTERACTIVITY,
-                            209,
-                            format!("Update requested for item {highlighted} (Key 'u')")
-                        );
-                        selection = TerminalReturn::Update(highlighted);
+                    simple_status!(
+                        log::LevelFilter::Trace,
+                        Module::INTERACTIVITY,
+                        209,
+                        format!(
+                            "Update requested for item {highlighted} (Key 'u')\n{:?}",
+                            items[highlighted].2
+                        )
+                    );
+                    if self.is_input_included(SpecialInputs::Update)
+                        && let Some(information) = &items[highlighted].2
+                    {
+                        selection = TerminalReturn::Update(Some(information.clone()));
                         break;
                     }
                 }
@@ -1657,7 +1696,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_selection_line_formatting() {
         let term = Terminal::new(10);
-        let item = (1, "serde = 1.0.197".to_string(), false);
+        let item = (1, "serde = 1.0.197".to_string(), None);
 
         let highlighted_line = term.get_selection_line(&item, 0);
         assert!(highlighted_line.starts_with("|-> 1 "));
