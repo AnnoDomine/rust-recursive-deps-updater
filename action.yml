@@ -8,13 +8,9 @@ branding:
 
 inputs:
   version:
-    description: 'Version of rrdu to run (e.g., "latest" or a release tag like "v0.1.0")'
+    description: 'Version of rrdu to run (e.g., "latest" or a release tag like "v0.0.6")'
     required: false
     default: 'latest'
-  config:
-    description: 'Path to custom configuration file (copied to .rrduconfig if not in default root location)'
-    required: false
-    default: '.rrduconfig'
 
 runs:
   using: 'composite'
@@ -59,16 +55,6 @@ runs:
         Remove-Item $zipPath
         
         echo "$binDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-    - name: Apply custom config path
-      if: inputs.config != '.rrduconfig'
-      shell: bash
-      run: |
-        if [ -f "${{ inputs.config }}" ]; then
-          cp "${{ inputs.config }}" .rrduconfig
-        else
-          echo "Warning: Specified config file '${{ inputs.config }}' was not found. Using default discovery."
-        fi
 
     - name: Run rrdu
       shell: bash
