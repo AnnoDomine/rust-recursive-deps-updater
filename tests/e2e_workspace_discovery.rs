@@ -1,4 +1,7 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use tempfile::Builder;
 
 use rrdu::{
@@ -90,14 +93,30 @@ regex = "1.10.0"
         "Root workspace Cargo.toml should be detected"
     );
 
-    // Verify ignore list collected from .rrduignore
-    assert!(
-        discovery
-            .ignore
-            .iter()
-            .any(|p| p.ends_with("crates/ignored_crate")),
-        "crates/ignored_crate must be registered in discovery ignore list"
-    );
+    // Verify ignore list collected from .rrduignore using PathBuf
+    #[cfg(windows)]
+    {
+        let expected_ignored = PathBuf::from("crates\\ignored_crate");
+        assert!(
+            discovery
+                .ignore
+                .iter()
+                .any(|p| p.ends_with(&expected_ignored)),
+            "crates\\ignored_crate must be registered in discovery ignore list on Windows"
+        );
+    }
+
+    #[cfg(not(windows))]
+    {
+        let expected_ignored = PathBuf::from("crates/ignored_crate");
+        assert!(
+            discovery
+                .ignore
+                .iter()
+                .any(|p| p.ends_with(&expected_ignored)),
+            "crates/ignored_crate must be registered in discovery ignore list on Unix"
+        );
+    }
 }
 
 #[tokio::test]
@@ -243,17 +262,29 @@ updater:
         matches!(sub_proj.deps, ProjectDependency::Map(_)),
         "sub-crate should have parsed dependency map"
     );
-    assert!(
-        sub_proj
-            .path
-            .to_string_lossy()
-            .contains("crates/sub_workspace/sub_crate")
-            || sub_proj
-                .path
-                .to_string_lossy()
-                .contains(r#"crates\sub_workspace\sub_crate"#),
-        "sub-crate path must be properly aligned relative to root"
-    );
+    #[cfg(windows)]
+    {
+        let expected_path = Path::new(rel_root)
+            .join("crates")
+            .join("sub_workspace")
+            .join("sub_crate");
+        assert_eq!(
+            sub_proj.path, expected_path,
+            "sub-crate path on Windows must match expected PathBuf"
+        );
+    }
+
+    #[cfg(not(windows))]
+    {
+        let expected_path = Path::new(rel_root)
+            .join("crates")
+            .join("sub_workspace")
+            .join("sub_crate");
+        assert_eq!(
+            sub_proj.path, expected_path,
+            "sub-crate path on Unix must match expected PathBuf"
+        );
+    }
 
     // 4. Verify collected dependencies:
     // Should contain `serde` (from active-crate) and `clap` (from sub-crate),
