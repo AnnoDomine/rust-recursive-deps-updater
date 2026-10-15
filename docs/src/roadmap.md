@@ -45,14 +45,14 @@ This document outlines the milestones, current progress, and upcoming engineerin
 - [x] Integration of the first benchmarks.
 
 ### Phase 5: Comment-Preserving Manifest Updater (`updater`)
-- [ ] In-place AST modifications via `toml_edit`.
-- [ ] Full preservation of comments, whitespace, indentation, and inline tables.
-- [ ] Workspace-level dependency updates (`[workspace.dependencies]`).
-- [ ] Re-enable interactive dependency selection (`SpecialInputs::Select` in `Views::Dependecy`) and wire key `u`.
+- [x] In-place AST modifications via `toml_edit`.
+- [x] Full preservation of comments, whitespace, indentation, and inline tables.
+- [x] Workspace-level dependency updates (`[workspace.dependencies]`).
+- [x] Re-enable interactive dependency selection (`SpecialInputs::Select` in `Views::Dependecy`) and wire key `u`.
 
 ### Phase 6: End-to-End Verification, Fixtures & Release v0.1.0
 - [ ] Integration test suite in `tests/` using `tempfile`.
 - [ ] End-to-end headless CI verification across Linux and Windows.
 - [ ] Criterion benchmark suite in `benches/`.
-- [ ] Clean security audit (`cargo audit`).
+- [x] Clean security audit (`cargo --trace`).
 - [ ] Official `v0.1.0` release on GitHub and `crates.io`.
