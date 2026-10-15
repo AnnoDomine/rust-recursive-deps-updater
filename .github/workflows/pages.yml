@@ -39,13 +39,15 @@ jobs:
           cp CHANGELOG.md docs/src/history/changelog.md
           cp MIGRATION.md docs/src/history/migration.md
 
-      - name: Install mdBook
+      - name: Install mdBook & preprocessors
         uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
         with:
-          tool: mdbook
+          tool: mdbook,mdbook-variables
 
       - name: Build mdBook
-        run: mdbook build docs
+        run: |
+          export RRDU_VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d '"' -f2)
+          mdbook build docs
 
       - name: Copy benchmark report to mdbook output
         run: |

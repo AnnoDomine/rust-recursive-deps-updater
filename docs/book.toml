@@ -9,3 +9,10 @@ description = "A fast, safe, zero-privilege recursive Cargo dependency updater f
 site-url = "/rust-recursive-deps-updater/"
 git-repository-url = "https://github.com/AnnoDomine/rust-recursive-deps-updater"
 edit-url-template = "https://github.com/AnnoDomine/rust-recursive-deps-updater/edit/master/docs/{path}"
+
+[preprocessor.variables]
+use_env = true
+
+[preprocessor.variables.variables]
+
+
