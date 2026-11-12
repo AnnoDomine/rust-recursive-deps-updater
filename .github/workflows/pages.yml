@@ -34,12 +34,14 @@ jobs:
       - name: Create benchmark report (Criterion)
         run: cargo bench --bench rrdu_benchmarks
 
-      - name: Copy root markdowns to docs
+      - name: Copy root markdowns and toml-schema to docs
         run: |
           cp CHANGELOG.md docs/src/history/changelog.md
           cp MIGRATION.md docs/src/history/migration.md
           cp ACCESSIBILITY.md docs/src/accessibility.md
           cp SECURITY.md docs/src/quality/security.md
+          mkdir -p docs/book/schemas
+          cp schemas/rrdu.schema.json docs/book/schemas/rrdu.schema.json
 
       - name: Install mdBook & preprocessors
         uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
@@ -55,6 +57,11 @@ jobs:
         run: |
           mkdir -p docs/book/quality/criterion
           cp -r target/criterion/* docs/book/quality/criterion/
+
+      - name: Copy toml-schema to mdbook output
+        run: |
+          mkdir -p docs/book/schemas
+          cp schemas/rrdu.schema.json docs/book/schemas/rrdu.schema.json
 
       - name: Test if copy succeeded
         run: test -f docs/book/quality/criterion/report/index.html
