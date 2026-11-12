@@ -3,7 +3,10 @@
 //! Provides functions to validate manifest file names, check against path traversal
 //! vulnerabilities, and construct absolute paths relative to the current working directory.
 
-use std::path::{Component, Path, PathBuf};
+use std::{
+    io::{self, Write},
+    path::{Component, Path, PathBuf},
+};
 
 use crate::errors::{ConfigError, FileError};
 
@@ -97,6 +100,17 @@ pub fn create_absolute_path(path: &Path, file_name: Option<&str>) -> Result<Path
         Some(f) => validate_path_and_file_name(&abolute_path, f),
         None => Ok(abolute_path),
     }
+}
+
+/// Helper function to wait for user pressed 'enter' or 'return' on keyboard
+pub fn wait_for_enter() -> Result<(), std::io::Error> {
+    std::io::stdout().flush()?;
+
+    let mut buffer = String::new();
+    let stdin = io::stdin();
+    stdin.read_line(&mut buffer)?;
+
+    Ok(())
 }
 
 #[cfg(test)]

@@ -17,6 +17,7 @@ use rrdu::{
     config::{migrate::MigrateYamlToTomlConfig, rrdu_toml::RrduTomlConfig},
     logger::status_codes::Module,
     report::report::Report,
+    self_updater::controller::SelfUpdateController,
     simple_status,
     workspace::project::Workspace,
 };
@@ -84,6 +85,21 @@ async fn main() {
         Headless::new(workspace).headless_workspace_table(args.headless);
         process::exit(0);
     }
+
+    // Self-Update init
+    let self_updater = tokio::task::spawn_blocking(SelfUpdateController::new)
+        .await
+        .unwrap_or_default();
+
+    // Self-Update mode
+    if args.self_update {
+        let _ = self_updater.render_self_update().await;
+
+        // Even if it is not neccessary, we process::exit here.
+        process::exit(0);
+    }
+
+    self_updater.render_interactive();
 
     // Interactive mode
     let mut interactive = Interactive::new(&workspace);
