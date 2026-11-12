@@ -288,3 +288,28 @@ impl SelfUpdateController {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_controller_default_and_new() {
+        let default_controller = SelfUpdateController::default();
+        assert!(default_controller.engine.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_render_self_update_border_filling() {
+        let controller = SelfUpdateController::default();
+        let border = controller.render_self_update_border_filling("═", "╔", "╗", None);
+        assert!(border.starts_with('╔'));
+        assert!(border.ends_with('╗'));
+        assert_eq!(border.chars().count(), 102);
+
+        let title_line = controller.render_self_update_border_filling(" ", "║", "║", Some("TITLE"));
+        assert!(title_line.starts_with("║ TITLE "));
+        assert!(title_line.ends_with('║'));
+        assert_eq!(title_line.chars().count(), 102);
+    }
+}

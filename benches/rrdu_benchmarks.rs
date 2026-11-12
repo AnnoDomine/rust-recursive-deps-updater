@@ -310,6 +310,52 @@ fn bench_dependency_tree_metrics(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmarks self-updater version comparison and cache serialization.
+fn bench_self_updater_operations(c: &mut Criterion) {
+    let mut group = c.benchmark_group("self_updater_operations");
+    group.warm_up_time(Duration::from_millis(300));
+    group.measurement_time(Duration::from_millis(600));
+    group.sample_size(30);
+
+    let versions = [
+        ("0.1.0", "0.1.1"),
+        ("1.0.0", "1.0.0"),
+        ("1.2.3", "2.0.0"),
+        ("0.2.1", "0.2.0"),
+        ("0.1.0+build1", "0.1.0+build2"),
+    ];
+
+    group.bench_function("version_comparison_batch", |b| {
+        b.iter(|| {
+            for (curr, lat) in &versions {
+                black_box(
+                    rrdu::self_updater::engine::SelfUpdateEngine::is_version_outdated(curr, lat),
+                );
+            }
+        });
+    });
+
+    let engine = rrdu::self_updater::engine::SelfUpdateEngine {
+        crates_io: true,
+        git_hub: true,
+        releases: rrdu::self_updater::engine::ReleaseNotes {
+            gh: Some(rrdu::self_updater::engine::RrduReleaseStatus::UpToDate),
+            ci: None,
+        },
+    };
+
+    group.bench_function("cache_serialization", |b| {
+        b.iter(|| {
+            let serialized = serde_json::to_string(&engine).unwrap();
+            let deserialized: rrdu::self_updater::engine::SelfUpdateEngine =
+                serde_json::from_str(&serialized).unwrap();
+            black_box(deserialized);
+        });
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_semver_classification,
@@ -317,5 +363,6 @@ criterion_group!(
     bench_config_roundtrip,
     bench_toml_config_roundtrip,
     bench_dependency_tree_metrics,
+    bench_self_updater_operations,
 );
 criterion_main!(benches);
