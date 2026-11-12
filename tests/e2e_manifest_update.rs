@@ -2,7 +2,7 @@ use std::fs;
 use tempfile::Builder;
 
 use rrdu::{
-    config::model::ProjectConfig,
+    config::rrdu_toml::TomlWorkspace,
     enums::{Boolean, DependencySection, TargetDepKind},
     updater::engine::UpdaterInformation,
     workspace::project::Projects,
@@ -24,8 +24,9 @@ async fn test_e2e_manifest_update_and_comment_preservation() {
     fs::write(&target_toml_path, &fixture_content).expect("write target Cargo.toml");
 
     // 3. Initialize and parse project via rrdu
-    let config = ProjectConfig::new("test-project".to_string(), rel_dir.to_string());
-    let mut project = Projects::new(config, Boolean::False);
+    let mut config = TomlWorkspace::new(rel_dir);
+    config.set_label("test-project");
+    let mut project = Projects::new("test-project", config, Boolean::False);
     project.parse_project();
 
     assert!(
@@ -218,10 +219,9 @@ async fn test_e2e_manifest_update_and_comment_preservation() {
     );
 
     // 10. Re-parse the updated file with Projects to verify complete roundtrip
-    let mut reloaded_project = Projects::new(
-        ProjectConfig::new("test-project".to_string(), rel_dir.to_string()),
-        Boolean::False,
-    );
+    let mut reloaded_config = TomlWorkspace::new(rel_dir);
+    reloaded_config.set_label("test-project");
+    let mut reloaded_project = Projects::new("test-project", reloaded_config, Boolean::False);
     reloaded_project.parse_project();
     let mut collected = std::collections::HashMap::new();
     reloaded_project.list_all_deps(&mut collected);
