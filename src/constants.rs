@@ -8,8 +8,8 @@ use std::time::Duration;
 /// Binary name `rrdu` without extension
 pub const BIN_NAME: &str = "rrdu";
 
-/// Binary name used for install via 'cargo'. `cargo install rust-recursive-dependency-updater@latest`
-pub const CARGO_INSTALL_BIN_NAME: &str = "rust-recursive-dependency-updater";
+/// Binary name used for install via 'cargo'. `cargo install rust-recursive-deps-updater@latest`
+pub const CARGO_INSTALL_BIN_NAME: &str = "rust-recursive-deps-updater";
 
 /// Legacy configuration filename for `rrdu`.
 #[deprecated(

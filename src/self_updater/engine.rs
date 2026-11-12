@@ -197,12 +197,12 @@ impl SelfUpdateEngine {
     /// # Errors
     /// Returns `RrduConfigResult::Err` if remote API requests or cache serialization fails.
     pub fn new() -> RrduConfigResult<Self> {
-        let cache: CacheRegistry<SelfUpdateEngine> =
-            CacheRegistry::new(crate::enums::CacheType::SelfUpdate);
+        // let cache: CacheRegistry<SelfUpdateEngine> =
+        //     CacheRegistry::new(crate::enums::CacheType::SelfUpdate);
 
-        if let Some(entry) = cache.get_cache_entry("self_update") {
-            return Ok(entry.clone());
-        }
+        // if let Some(entry) = cache.get_cache_entry("self_update") {
+        //     return Ok(entry.clone());
+        // }
 
         let mut engine = Self {
             crates_io: false,
@@ -265,7 +265,8 @@ impl SelfUpdateEngine {
             format!("GitHub response. Is outdaten: {}", self.git_hub)
         );
 
-        let release = status.get_release_version(env!("CARGO_PKG_VERSION"))?;
+        let tag = format!("v{}", env!("CARGO_PKG_VERSION"));
+        let release = status.get_release_version(&tag)?;
         self.releases.set_git_hub(release.clone());
         simple_status!(
             LevelFilter::Trace,
@@ -280,21 +281,20 @@ impl SelfUpdateEngine {
     }
 
     fn compare_crates_io_versions(&mut self, res: Box<CratesIOResponse>) {
-        let default_version = res.clone().crate_field.default_version;
+        let default_version = res.crate_field.default_version.clone();
         let current_version = env!("CARGO_PKG_VERSION");
 
         if let (Ok(mut current_ver), Ok(mut latest_ver)) = (
             semver::Version::parse(current_version),
             semver::Version::parse(&default_version),
         ) {
-            // SemVer 2.0 needs to cut by the build-metadate
+            // SemVer 2.0 needs to cut by the build-metadata
             current_ver.build = semver::BuildMetadata::EMPTY;
             latest_ver.build = semver::BuildMetadata::EMPTY;
 
-            if current_ver <= latest_ver {
-                self.crates_io = true;
-                self.releases.set_crates_io(res.crate_field.clone());
-            }
+            // true if latest higher current
+            self.crates_io = current_ver < latest_ver;
+            self.releases.set_crates_io(res.crate_field);
         };
     }
 
