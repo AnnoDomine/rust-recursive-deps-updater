@@ -280,22 +280,33 @@ impl SelfUpdateEngine {
         Ok(())
     }
 
-    fn compare_crates_io_versions(&mut self, res: Box<CratesIOResponse>) {
-        let default_version = res.crate_field.default_version.clone();
-        let current_version = env!("CARGO_PKG_VERSION");
-
+    /// Checks whether `current` SemVer is strictly older than `latest`.
+    ///
+    /// Ignores SemVer 2.0 build metadata during comparison.
+    ///
+    /// # Arguments
+    /// * `current` - Current version string.
+    /// * `latest` - Target or latest version string.
+    ///
+    /// # Returns
+    /// `true` if `current` is strictly older than `latest`.
+    pub fn is_version_outdated(current: &str, latest: &str) -> bool {
         if let (Ok(mut current_ver), Ok(mut latest_ver)) = (
-            semver::Version::parse(current_version),
-            semver::Version::parse(&default_version),
+            semver::Version::parse(current),
+            semver::Version::parse(latest),
         ) {
-            // SemVer 2.0 needs to cut by the build-metadata
             current_ver.build = semver::BuildMetadata::EMPTY;
             latest_ver.build = semver::BuildMetadata::EMPTY;
+            current_ver < latest_ver
+        } else {
+            false
+        }
+    }
 
-            // true if latest higher current
-            self.crates_io = current_ver < latest_ver;
-            self.releases.set_crates_io(res.crate_field);
-        };
+    fn compare_crates_io_versions(&mut self, res: Box<CratesIOResponse>) {
+        let default_version = res.crate_field.default_version.clone();
+        self.crates_io = Self::is_version_outdated(env!("CARGO_PKG_VERSION"), &default_version);
+        self.releases.set_crates_io(res.crate_field);
     }
 
     fn get_creates_io(&mut self) -> RrduConfigResult<()> {
@@ -360,5 +371,88 @@ impl SelfUpdateEngine {
         self.get_creates_io()?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_is_version_outdated() {
+        // Equal versions -> false
+        assert!(!SelfUpdateEngine::is_version_outdated("0.1.0", "0.1.0"));
+        assert!(!SelfUpdateEngine::is_version_outdated("1.2.3", "1.2.3"));
+
+        // Current older than latest -> true
+        assert!(SelfUpdateEngine::is_version_outdated("0.1.0", "0.1.1"));
+        assert!(SelfUpdateEngine::is_version_outdated("0.1.0", "0.2.0"));
+        assert!(SelfUpdateEngine::is_version_outdated("0.1.0", "1.0.0"));
+        assert!(SelfUpdateEngine::is_version_outdated("1.0.0", "1.0.1"));
+        assert!(SelfUpdateEngine::is_version_outdated("1.0.0", "2.0.0"));
+
+        // Current newer than latest -> false
+        assert!(!SelfUpdateEngine::is_version_outdated("0.2.0", "0.1.0"));
+        assert!(!SelfUpdateEngine::is_version_outdated("1.0.1", "1.0.0"));
+        assert!(!SelfUpdateEngine::is_version_outdated("2.0.0", "1.0.0"));
+
+        // Build metadata should be stripped
+        assert!(!SelfUpdateEngine::is_version_outdated(
+            "0.1.0+build1",
+            "0.1.0+build2"
+        ));
+        assert!(SelfUpdateEngine::is_version_outdated(
+            "0.1.0+build1",
+            "0.1.1+build2"
+        ));
+
+        // Invalid SemVer -> false
+        assert!(!SelfUpdateEngine::is_version_outdated("invalid", "0.1.0"));
+        assert!(!SelfUpdateEngine::is_version_outdated("0.1.0", "invalid"));
+    }
+
+    #[tokio::test]
+    async fn test_release_models_and_equality() {
+        let mut notes1 = ReleaseNotes::new();
+        let mut notes2 = ReleaseNotes::new();
+        assert_eq!(notes1, notes2);
+
+        notes1.gh = Some(RrduReleaseStatus::UpToDate);
+        notes2.gh = Some(RrduReleaseStatus::UpToDate);
+        assert_eq!(notes1, notes2);
+
+        let release = RrduRelease {
+            name: "v0.1.1".to_string(),
+            version: "0.1.1".to_string(),
+            date: "2026-11-12".to_string(),
+            body: Some("Release body".to_string()),
+            release_notes_url: Some("https://example.com".to_string()),
+            assets: vec![RrduReleaseAsset {
+                name: "rrdu.tar.gz".to_string(),
+                download_url: "https://example.com/rrdu.tar.gz".to_string(),
+                digest: Some("sha256hash".to_string()),
+            }],
+        };
+
+        notes1.gh = Some(RrduReleaseStatus::Updated(release.clone()));
+        notes2.gh = Some(RrduReleaseStatus::Updated(release));
+        assert_eq!(notes1, notes2);
+    }
+
+    #[tokio::test]
+    async fn test_self_update_engine_serialization() {
+        let engine = SelfUpdateEngine {
+            crates_io: true,
+            git_hub: false,
+            releases: ReleaseNotes {
+                gh: Some(RrduReleaseStatus::UpToDate),
+                ci: None,
+            },
+        };
+
+        let json = serde_json::to_string(&engine).expect("serialize engine");
+        let deserialized: SelfUpdateEngine =
+            serde_json::from_str(&json).expect("deserialize engine");
+        assert_eq!(engine, deserialized);
     }
 }
