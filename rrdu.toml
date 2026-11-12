@@ -4,6 +4,8 @@
 rust-recursive-deps-updater = { label = "rrdu", path = "./", exclude = { project = [
     "comfy-table-inline",
     "rustls",
+    "rustls-webpki",
+    "rustix",
 ] } }
 
 [configs]

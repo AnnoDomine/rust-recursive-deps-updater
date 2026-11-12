@@ -39,7 +39,7 @@ thiserror = "2.0.21"
 time = { version = "0.3.55", features = ["macros"] }
 tokio = { version = "1.54.1", features = ["full"] }
 toml_edit = { version = "0.25.19", features = ["serde"] }
-ureq = { version = "3.5.1", features = ["rustls", "json"] }
+ureq = { version = "3.5.2", features = ["rustls", "json"] }
 usize-conv = { version = "0.1.1", features = ["from_usize"] }
 
 [dev-dependencies]
@@ -53,6 +53,18 @@ criterion = "0.8.2"
 version = "0.23.46"
 default-features = false
 features = ["ring", "std", "tls12", "logging"]
+
+# Override the rustls-webpki version from rustls/reqwest.
+# rustls-webpki in the version rustls includes has RUSTSEC-2026-0382.
+# TODO: Remove after rustls updated dependency internal.
+[dependencies.rustls-webpki]
+version = "0.103.16"
+
+# Override the rustix version from crossterm/tempfile.
+# rustix in the version crossterm includes has RUSTSEC-2026-0486.
+# TODO: Remove after crossterm and tempfile updated dependency internal.
+[dependencies.rustix]
+version = "1.1.6"
 
 [[bench]]
 name = "rrdu_benchmarks"
