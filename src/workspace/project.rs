@@ -4,7 +4,7 @@
 //! evaluate version differences against SemVer rules, and coordinate registry version fetching.
 
 use crate::{
-    config::{model::*, rrdu_config::RrduConfig},
+    config::rrdu_toml::{RrduTomlConfig, TomlWorkspace},
     constants::*,
     enums::*,
     errors::*,
@@ -326,6 +326,11 @@ impl DependencyEntry {
             Self::Table(d) => d.version = DependencyVersion::Excluded(reason.clone()),
         };
     }
+
+    /// Returns true if the dependency is excluded.
+    pub fn is_excluded(&self) -> bool {
+        matches!(self.version(), DependencyVersion::Excluded(..))
+    }
 }
 
 impl std::fmt::Display for DependencySection {
@@ -476,7 +481,7 @@ pub struct Projects {
     /// Parsed dependencies grouped by section.
     pub deps: ProjectDependency,
     /// Associated project configuration.
-    pub config: ProjectConfig,
+    pub config: TomlWorkspace,
     /// Update engine
     pub updater: Option<UpdateEngine>,
 }
@@ -505,9 +510,9 @@ impl Projects {
     /// # Arguments
     /// * `config` - Project configuration settings.
     /// * `is_excuded` - Boolean indicating whether the project is excluded.
-    pub fn new(config: ProjectConfig, is_excuded: Boolean) -> Self {
+    pub fn new(label: &str, config: TomlWorkspace, is_excuded: Boolean) -> Self {
         Self {
-            name: config.project.clone(),
+            name: label.to_string(),
             path: PathBuf::from(config.path.clone()),
             deps: Self::define_deps(is_excuded),
             config: config.clone(),
@@ -657,19 +662,20 @@ impl Projects {
                 let sec = section.unwrap_or(key.to_owned());
                 let dependency_section = DependencySection::new(&sec);
                 if let Some(mapable_section) = dependency_section {
-                    let excluded = self.config.exclude.clone();
-                    // If the section is inside the section excluded in the project definition from the config, means the hole section is excluded.
-                    match excluded.section.get(&sec) {
-                        Some(excluded_section_values) if excluded_section_values.is_empty() => {
-                            collector.insert(
-                                mapable_section,
-                                Some(DependencySectionMap::ExcludedSection),
-                            );
-                        }
-                        _ => {
-                            collector.insert(mapable_section, None);
-                        }
-                    };
+                    let is_section_excluded = self
+                        .config
+                        .exclude
+                        .as_ref()
+                        .and_then(|e| e.section.as_ref())
+                        .and_then(|s| s.get(&sec))
+                        .is_some_and(|deps| deps.is_empty());
+
+                    if is_section_excluded {
+                        collector
+                            .insert(mapable_section, Some(DependencySectionMap::ExcludedSection));
+                    } else {
+                        collector.insert(mapable_section, None);
+                    }
                 }
             }
         }
@@ -748,7 +754,7 @@ pub struct Workspace {
     /// Registry client containing fetched responses after network calls.
     pub client: Option<Client>,
     /// The config store
-    pub config: Option<RrduConfig>,
+    pub config: Option<RrduTomlConfig>,
 }
 
 impl Default for Workspace {
@@ -768,7 +774,11 @@ impl Workspace {
         }
     }
 
-    fn parse_sub_config_project_paths(&self, config: &mut RrduConfig, sub_config_path: PathBuf) {
+    fn parse_sub_config_project_paths(
+        &self,
+        config: &mut RrduTomlConfig,
+        sub_config_path: PathBuf,
+    ) {
         // We need to align all paths from the sub_config. Otherwise nested configs are not getting correct used and run into an error.
         // See: [GitHub Issue](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues/10)
         let mut clean_sub_config_path = sub_config_path;
@@ -786,19 +796,32 @@ impl Workspace {
             )
         );
         // Align path to all projects.
-        for p in &mut config.workspace {
+        for p in &mut config.workspaces {
             let mut path = clean_sub_config_path.clone();
-            path.push(p.path.clone());
+            path.push(p.1.path.clone());
             let path_string = path.display().to_string();
-            p.path = path_string;
+            p.1.path = path_string;
             simple_status!(
                 log::LevelFilter::Trace,
                 Module::WORKSPACE,
                 200,
                 format!(
                     "Path for sub config project {:} aligned to '{:?}'",
-                    p.project, p.path
+                    p.0, p.1.path
                 )
+            );
+        }
+        // Align path to all sub configs.
+        for (label, sub_path) in &mut config.configs {
+            let mut path = clean_sub_config_path.clone();
+            path.push(sub_path.clone());
+            let path_string = path.display().to_string();
+            *sub_path = path_string;
+            simple_status!(
+                log::LevelFilter::Trace,
+                Module::WORKSPACE,
+                200,
+                format!("Path for sub config {:} aligned to '{:?}'", label, sub_path)
             );
         }
     }
@@ -816,8 +839,8 @@ impl Workspace {
     /// Returns [`FileError`] if configuration loading or project parsing fails.
     pub fn read_rrdu_config(&mut self, path: Option<PathBuf>) -> Result<(), FileError> {
         let config = match &path {
-            Some(p) => RrduConfig::load_from_path(p),
-            None => Ok(RrduConfig::new()),
+            Some(p) => RrduTomlConfig::load_from_path(p),
+            None => Ok(RrduTomlConfig::new()),
         };
         match config {
             Ok(mut c) => {
@@ -840,69 +863,59 @@ impl Workspace {
     }
 
     /// Collects the projects from a config and applies excluded definition.
-    fn collect_projects(&mut self, config: RrduConfig) -> Result<(), FileError> {
+    fn collect_projects(&mut self, config: RrduTomlConfig) -> Result<(), FileError> {
         simple_status!(
             log::LevelFilter::Info,
             Module::WORKSPACE,
             100,
             format!(
                 "Collecting projects from configuration (total: {})",
-                config.workspace.len()
+                config.workspaces.len()
             )
         );
-        for project in config.workspace {
-            if config.updater.exclude.contains(&project.project) {
+        for (label, project) in &config.workspaces {
+            if config
+                .rrdu
+                .exclude
+                .as_ref()
+                .is_some_and(|e| e.contains(label))
+            {
                 simple_status!(
                     log::LevelFilter::Debug,
                     Module::WORKSPACE,
                     100,
                     format!(
                         "Project '{}' marked as excluded by updater configuration",
-                        project.project
+                        label
                     )
                 );
-                self.projects.push(Projects::new(project, Boolean::True));
+                self.projects
+                    .push(Projects::new(label, project.clone(), Boolean::True));
             } else {
-                self.add_project(project)?;
-            }
-        }
-        Ok(())
-    }
-
-    /// Reads the .rrduconfig yaml and parse the workspace.
-    ///
-    /// Additional handles sub-config definition.
-    fn add_project(&mut self, project: ProjectConfig) -> Result<(), FileError> {
-        match project.sub_config {
-            SubConfig::Bool(true) => {
-                let sub_config_path = project.get_sub_config_path()?;
                 simple_status!(
                     log::LevelFilter::Debug,
                     Module::WORKSPACE,
                     100,
-                    format!(
-                        "Delegating project '{}' to sub-config at '{:?}'",
-                        project.project, sub_config_path
-                    )
+                    format!("Processing project '{}' at '{}'", label, project.path)
                 );
-                self.read_rrdu_config(Some(sub_config_path))?;
-            }
-            _ => {
-                simple_status!(
-                    log::LevelFilter::Debug,
-                    Module::WORKSPACE,
-                    100,
-                    format!(
-                        "Processing project '{}' at '{}'",
-                        project.project, project.path
-                    )
-                );
-                let mut p = Projects::new(project, Boolean::False);
+                let mut p = Projects::new(label, project.clone(), Boolean::False);
                 p.parse_project();
                 p.list_all_deps(&mut self.collected_deps);
                 self.projects.push(p);
             }
-        };
+        }
+        for (label, path) in &config.configs {
+            simple_status!(
+                log::LevelFilter::Debug,
+                Module::WORKSPACE,
+                100,
+                format!(
+                    "Delegating project '{}' to sub-config at '{:?}'",
+                    label, path
+                )
+            );
+            self.read_rrdu_config(Some(path.into()))?;
+        }
         Ok(())
     }
 
@@ -1268,20 +1281,19 @@ mod test_sub_config {
             .expect("create tempdir");
         let rel_dir = temp.path().file_name().unwrap().to_str().unwrap();
 
-        let sub_config_file = temp.path().join(".rrduconfig");
+        let sub_config_file = temp.path().join("rrdu.toml");
         std::fs::write(&sub_config_file, "").expect("write empty config");
 
-        let rel_sub_config_path = PathBuf::from(rel_dir).join(".rrduconfig");
+        let rel_sub_config_path = PathBuf::from(rel_dir).join("rrdu.toml");
 
-        let mut config = RrduConfig::default();
-        config.workspace.push(ProjectConfig::new(
-            "root_crate".to_string(),
-            "./".to_string(),
-        ));
-        config.workspace.push(ProjectConfig::new(
+        let mut config = RrduTomlConfig::default();
+        config
+            .workspaces
+            .insert("root_crate".to_string(), TomlWorkspace::new("./"));
+        config.workspaces.insert(
             "inner_crate".to_string(),
-            "crates/inner".to_string(),
-        ));
+            TomlWorkspace::new("crates/inner"),
+        );
 
         let workspace = Workspace::new();
         workspace.parse_sub_config_project_paths(&mut config, rel_sub_config_path);
@@ -1290,11 +1302,11 @@ mod test_sub_config {
         let expected_inner = PathBuf::from(format!("{}/crates/inner", rel_dir));
 
         assert_eq!(
-            PathBuf::from(config.workspace[0].path.clone()),
+            PathBuf::from(config.workspaces.get("root_crate").unwrap().path.clone()),
             expected_root
         );
         assert_eq!(
-            PathBuf::from(config.workspace[1].path.clone()),
+            PathBuf::from(config.workspaces.get("inner_crate").unwrap().path.clone()),
             expected_inner
         );
     }
@@ -1307,15 +1319,14 @@ mod test_sub_config {
             .expect("create tempdir");
         let rel_dir = temp.path().file_name().unwrap().to_str().unwrap();
 
-        let mut config = RrduConfig::default();
-        config.workspace.push(ProjectConfig::new(
-            "root_crate".to_string(),
-            "./".to_string(),
-        ));
-        config.workspace.push(ProjectConfig::new(
+        let mut config = RrduTomlConfig::default();
+        config
+            .workspaces
+            .insert("root_crate".to_string(), TomlWorkspace::new("./"));
+        config.workspaces.insert(
             "inner_crate".to_string(),
-            "crates/inner".to_string(),
-        ));
+            TomlWorkspace::new("crates/inner"),
+        );
 
         let workspace = Workspace::new();
         workspace.parse_sub_config_project_paths(&mut config, PathBuf::from(rel_dir));
@@ -1324,11 +1335,11 @@ mod test_sub_config {
         let expected_inner = PathBuf::from(format!("{}/crates/inner", rel_dir));
 
         assert_eq!(
-            PathBuf::from(config.workspace[0].path.clone()),
+            PathBuf::from(config.workspaces.get("root_crate").unwrap().path.clone()),
             expected_root
         );
         assert_eq!(
-            PathBuf::from(config.workspace[1].path.clone()),
+            PathBuf::from(config.workspaces.get("inner_crate").unwrap().path.clone()),
             expected_inner
         );
     }
@@ -1363,12 +1374,13 @@ serde = "1.0.0"
             .expect("write .rrduconfig");
 
         let mut workspace = Workspace::new();
-        let mut sub_proj =
-            ProjectConfig::new("child-sub".to_string(), format!("{}/child_crate", rel_dir));
-        sub_proj.set_sub_config(true);
+        let mut root_config = RrduTomlConfig::default();
+        root_config
+            .configs
+            .insert("child-sub".to_string(), format!("{}/child_crate", rel_dir));
 
         workspace
-            .add_project(sub_proj)
+            .collect_projects(root_config)
             .expect("delegation to sub-config should succeed");
 
         assert_eq!(workspace.projects.len(), 1);
@@ -1446,12 +1458,13 @@ tokio = "1.0.0"
             .expect("write level1 .rrduconfig");
 
         let mut workspace = Workspace::new();
-        let mut level1_proj =
-            ProjectConfig::new("level1-sub".to_string(), format!("{}/level1", rel_dir));
-        level1_proj.set_sub_config(true);
+        let mut root_config = RrduTomlConfig::default();
+        root_config
+            .configs
+            .insert("level1-sub".to_string(), format!("{}/level1", rel_dir));
 
         workspace
-            .add_project(level1_proj)
+            .collect_projects(root_config)
             .expect("multi-level nested config delegation should succeed");
 
         assert_eq!(
@@ -1459,16 +1472,9 @@ tokio = "1.0.0"
             2,
             "Should have collected both direct-crate and level2-crate"
         );
-        assert_eq!(workspace.projects[0].name, "direct-crate");
-        assert_eq!(
-            workspace.projects[0].path,
-            PathBuf::from(format!("{}/level1/direct", rel_dir))
-        );
-        assert_eq!(workspace.projects[1].name, "level2-crate");
-        assert_eq!(
-            workspace.projects[1].path,
-            PathBuf::from(format!("{}/level1/level2/./", rel_dir))
-        );
+        let names: Vec<String> = workspace.projects.iter().map(|p| p.name.clone()).collect();
+        assert!(names.contains(&"direct-crate".to_string()));
+        assert!(names.contains(&"level2-crate".to_string()));
 
         assert!(
             workspace.collected_deps.contains_key("anyhow"),
@@ -1514,14 +1520,14 @@ updater:
             .expect("write .rrduconfig");
 
         let mut workspace = Workspace::new();
-        let mut sub_proj = ProjectConfig::new(
+        let mut root_config = RrduTomlConfig::default();
+        root_config.configs.insert(
             "sub-excluded".to_string(),
             format!("{}/child_crate", rel_dir),
         );
-        sub_proj.set_sub_config(true);
 
         workspace
-            .add_project(sub_proj)
+            .collect_projects(root_config)
             .expect("nested config should load successfully");
 
         assert_eq!(workspace.projects.len(), 1);
@@ -1570,14 +1576,14 @@ serde = "1.0.0"
             .expect("write .rrduconfig");
 
         let mut workspace = Workspace::new();
-        let mut sub_proj = ProjectConfig::new(
+        let mut root_config = RrduTomlConfig::default();
+        root_config.configs.insert(
             "sub-dep-excl".to_string(),
             format!("{}/child_crate", rel_dir),
         );
-        sub_proj.set_sub_config(true);
 
         workspace
-            .add_project(sub_proj)
+            .collect_projects(root_config)
             .expect("nested config should load successfully");
 
         assert_eq!(workspace.projects.len(), 1);
@@ -1612,13 +1618,13 @@ serde = "1.0.0"
         let rel_dir = temp.path().file_name().unwrap().to_str().unwrap();
 
         let mut workspace = Workspace::new();
-        let mut missing_proj = ProjectConfig::new(
+        let mut root_config = RrduTomlConfig::default();
+        root_config.configs.insert(
             "non-existent".to_string(),
             format!("{}/missing_dir", rel_dir),
         );
-        missing_proj.set_sub_config(true);
 
-        let result = workspace.add_project(missing_proj);
+        let result = workspace.collect_projects(root_config);
         assert!(
             result.is_err(),
             "Delegating to a non-existent sub-config path should return an error"

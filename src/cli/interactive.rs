@@ -576,7 +576,7 @@ impl Interactive {
                 .retreive_select_items(&self.active_update_engine);
             let select_items: Vec<(usize, String, Option<UpdaterInformation>)> =
                 self.parse_updateable_dependencies(&items);
-            let mut terminal = Terminal::new(config.updater.max_lines);
+            let mut terminal = Terminal::new(config.rrdu.max_lines);
             terminal.set_path(self.get_history_path());
             terminal.set_instruction(self.get_instruction());
             terminal.set_available_input(self.get_available_inputs());
