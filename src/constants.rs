@@ -5,7 +5,11 @@
 
 use std::time::Duration;
 
-/// Configuration filename for `rrdu`.
+/// Binary name `rrdu` without extension
+pub const BIN_NAME: &str = "rrdu";
+
+/// Binary name used for install via 'cargo'. `cargo install rust-recursive-dependency-updater@latest`
+pub const CARGO_INSTALL_BIN_NAME: &str = "rust-recursive-dependency-updater";
 pub const RRDUCONFIG_FILE_NAME: &str = ".rrduconfig";
 
 /// Cargo manifest filename.
@@ -26,6 +30,9 @@ pub const RRDU_REGISTRY_CACHE_CRATES_IO_INDEX: &str = "rrdu_crates_io_index_cach
 /// Cache binary filename for RustSec advisory data.
 pub const RRDU_REGISTRY_CACHE_RUSTSEC_API_IDS: &str = "rrdu_rustsec_cache.bin";
 
+/// Cache binary filename for Self-Updater-Engine.
+pub const RRDU_REGISTRY_CACHE_SELF_UPDATE: &str = "rrdu_self_update_cache.bin";
+
 /// Default log filename for `rrdu`.
 pub const RRDU_LOG: &str = "rrdu.log";
 
@@ -39,6 +46,9 @@ pub const CACHE_ENTRY_CRATES_IO_INDEX_TTL: Duration = Duration::from_millis(1000
 
 /// Cache TTL for RustSec advisory entries (6 hours).
 pub const CACHE_ENTRY_RUSTSEC_API_TTL: Duration = Duration::from_millis(1000 * 60 * 60 * 6);
+
+/// Cache TTL for self-update entries (24 hours).
+pub const CACHE_ENTRY_SELF_UPDATE_TTL: Duration = Duration::from_millis(1000 * 60 * 60 * 24);
 
 /// Mandatory delay between consecutive registry requests to respect rate limits.
 pub const TIME_BETWEEN_REQUESTS: Duration = Duration::from_millis(1000);
@@ -71,6 +81,10 @@ pub const DEFAULT_USER_AGENT_HEADER_TYPE_FULL_INFORMATION: &str = " - get depend
 
 /// User-Agent purpose suffix for security audit queries.
 pub const DEFAULT_USER_AGENT_HEADER_TYPE_AUDIT: &str = " - get dependency audit information ";
+
+/// User-Agent purpose suffix for self-update queries.
+pub const DEFAULT_USER_AGENT_HEADER_TYPE_SELF_UPDATE: &str =
+    " - check latest version for self-update ";
 
 /// Manifest keys that indicate non-crates.io or unsupported dependencies.
 pub const UNSUPPORTED_DEPENDENCY_KEYS: [&str; 4] = ["git", "path", "registry", "workspace"];
