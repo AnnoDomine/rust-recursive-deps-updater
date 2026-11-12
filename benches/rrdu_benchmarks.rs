@@ -187,7 +187,7 @@ fn bench_config_roundtrip(c: &mut Criterion) {
 fn generate_toml_config(size: usize) -> RrduTomlConfig {
     let mut config = RrduTomlConfig::default();
     config.rrdu.max_lines = 10;
-    config.rrdu.version = String::from("0.1.0");
+    config.rrdu.version = String::from("0.1.1");
 
     for i in 0..size {
         let name = format!("crate_{:04}", i);

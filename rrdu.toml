@@ -12,4 +12,4 @@ rust-recursive-deps-updater = { label = "rrdu", path = "./", exclude = { project
 
 [rrdu]
 max-lines = 10
-version = "0.1.0"
+version = "0.1.1"
