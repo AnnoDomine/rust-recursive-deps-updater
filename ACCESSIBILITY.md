@@ -59,7 +59,16 @@ For users relying on screen readers or terminal accessibility utilities, `rrdu -
 
 ---
 
-## 5. Feedback & Reporting Accessibility Barriers
+## 5. Future Accessibility: Desktop GUI via Dioxus (`--ui`) in v0.2.0
+
+As part of the upcoming major version **v0.2.0**, `rrdu` will introduce an optional Desktop Graphical User Interface (`rrdu --ui`) built with **Dioxus Desktop**:
+- **Native OS Accessibility Tree:** Direct integration with OS accessibility APIs (Orca on Linux, UI Automation on Windows, VoiceOver on macOS) for screen reader accessibility beyond the terminal.
+- **Dynamic Text Scaling & Theming:** Full support for system font scaling, adjustable UI density, and WCAG AAA high-contrast color modes.
+- **Full Keyboard Operability:** Complete keyboard navigation parity with the terminal interface, providing clear focus rings, accessible shortcut bindings, and predictable tab navigation.
+
+---
+
+## 6. Feedback & Reporting Accessibility Barriers
 
 We welcome feedback on the accessibility of `rrdu`. If you encounter accessibility barriers or have suggestions for improvement, please open an issue on GitHub:
 - **Repository Issues:** [https://github.com/AnnoDomine/rust-recursive-deps-updater/issues](https://github.com/AnnoDomine/rust-recursive-deps-updater/issues)

@@ -212,6 +212,16 @@ Our definitions following a specified naming convention to remove confusion.
 
 ---
 
+## Upcoming Major Milestone: Version 0.2.0
+
+We have major architectural evolutions and new capabilities planned for the upcoming release **v0.2.0**:
+
+- **Core Cargo Crate Refactoring:** Embedding the official `cargo` binary/crate as a direct library dependency. Refactoring core workspace traversal and dependency graph modeling onto the `cargo` crate delivers significant performance gains, true workspace-native resolution, and optimal memory efficiency.
+- **Interactive Workspace Dependency Management:** Building directly on native `cargo` crate integration, `rrdu` will introduce dynamic dependency addition and deletion (`Add/delete deps in workspace in interactive mode`) within the interactive interface.
+- **Desktop GUI via Dioxus (`--ui`):** An optional modern Desktop Graphical User Interface built with Dioxus on top of the interactive core, delivering rich workspace visualization, enhanced UX/UI, and full digital accessibility (screen reader compatibility, dynamic font scaling, and high-contrast theming).
+
+---
+
 ## Security
 
 Security and supply chain integrity are top priorities for `rrdu`:

@@ -405,5 +405,18 @@ rust-recursive-deps-updater/
 
 - [ ] Transition crates.io publishing to Trusted Publishing (OIDC) after the initial release.
 - [ ] Publish composite action to GitHub Marketplace.
-- [x] Implement binary self-update (`rrdu self-update` / `rrdu --self-update`) against GitHub Releases API.
+- [x] Implement binary self-update (`rrdu self-update` / `rrdu --self-update`) against GitHub Releases API with persistent user-space caching.
 - [x] Migrate configuration format from legacy `.rrduconfig` to modern `rrdu.toml` (`rrdu --migrate`) with JSON schema validation.
+
+### Phase 8: Major Milestone v0.2.0 (Cargo Crate Core Refactor & Dioxus Desktop UI)
+
+- [ ] **Core Cargo Crate Refactoring:**
+  - [ ] Embed the official `cargo` binary/crate as a direct library dependency for workspace discovery and package dependency graph traversal.
+  - [ ] Replace custom manifest walking with native Cargo workspace metadata resolution for maximum performance and native toolchain fidelity.
+- [ ] **Interactive Dependency Management:**
+  - [ ] Support adding new dependencies to workspace crates interactively (`Add/delete deps in workspace in interactive mode`).
+  - [ ] Support removing existing dependencies across workspace crates interactively.
+- [ ] **Desktop GUI via Dioxus (`--ui`):**
+  - [ ] Implement an optional native Desktop GUI flag (`rrdu --ui`) built with Dioxus Desktop.
+  - [ ] Rich graphical workspace tree visualization, interactive dependency inspector, and batch update trigger.
+  - [ ] Advanced UX/UI design focusing on digital accessibility (keyboard accessibility, OS screen reader integration, dynamic text scaling, and high-contrast color palettes).

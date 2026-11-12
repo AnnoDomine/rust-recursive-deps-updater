@@ -207,3 +207,32 @@ rrdu --migrate
 - **Irrevocable Deletion:** The legacy `.rrduconfig` file is permanently deleted after the new `rrdu.toml` is written. It is strongly recommended to create your own manual backup before running `--migrate`.
 - Legacy `.rrduconfig` files continue to work transparently in-memory, but migrating to `rrdu.toml` ensures future compatibility as `.rrduconfig` is deprecated.
 
+---
+
+## 7. In-Place Binary Self-Update (`--self-update`)
+
+Keep `rrdu` current with official releases directly from the CLI:
+
+```sh
+rrdu --self-update
+```
+
+- Discovers and queries newer releases published on GitHub Releases and crates.io.
+- Automatically replaces the running binary in user space without requiring root or administrator privileges.
+- Uses persistent disk caching (`~/.rrdu/cache/rrdu_self_update_cache.bin`) with a 24-hour expiration check to eliminate redundant network queries.
+
+---
+
+## 8. Upcoming: Desktop Graphical UI Mode (`--ui`) in v0.2.0
+
+As part of the upcoming **Version 0.2.0** milestone, `rrdu` will deliver an optional Desktop GUI built with **Dioxus**:
+
+```sh
+# Future command in v0.2.0
+rrdu --ui
+```
+
+- **Interactive Workspace Tree:** Visual dependency tree inspection with interactive add/delete dependency actions powered by the refactored native `cargo` crate integration.
+- **Enhanced UX/UI & Accessibility:** Screen reader compatibility, native OS window integration, dynamic font scaling, and high-contrast color palettes for maximum visual accessibility.
+- **Interactive Update Validation:** Graphical multi-select workflows with explicit confirmation dialogs before applying manifest updates to disk.
+
