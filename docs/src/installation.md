@@ -50,12 +50,15 @@ For security, pinning to full immutable commit SHAs is recommended.
 
 ## 4. In-Place Binary Self-Update (`--self-update`)
 
-Once installed, you can update `rrdu` directly in-place to the newest GitHub Release without needing root or administrator privileges:
+Once installed, you can update `rrdu` directly in-place to the newest GitHub Release or from crates.io without needing root or administrator privileges:
 
 ```sh
 rrdu --self-update
 ```
 
+- **Interactive Options:**
+  - `g`: Download and install the newest pre-compiled binary directly from GitHub Releases.
+  - `c`: Compile and install the newest release from crates.io via `cargo install rust-recursive-deps-updater`.
+  - `q` / `Esc`: Cancel and exit.
 - **Safety:** Replaces the binary atomically in user space.
-- **Upstream Sources:** Checks GitHub Releases for new pre-compiled binaries and compares versions with `crates.io`.
 - **Caching:** Self-update metadata is cached in `~/.rrdu/cache/rrdu_self_update_cache.bin` with a 24-hour TTL to prevent redundant network calls.

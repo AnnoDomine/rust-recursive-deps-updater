@@ -217,9 +217,13 @@ Keep `rrdu` current with official releases directly from the CLI:
 rrdu --self-update
 ```
 
-- Discovers and queries newer releases published on GitHub Releases and crates.io.
-- Automatically replaces the running binary in user space without requiring root or administrator privileges.
-- Uses persistent disk caching (`~/.rrdu/cache/rrdu_self_update_cache.bin`) with a 24-hour expiration check to eliminate redundant network queries.
+- **Interactive Notification:** In interactive mode, if a newer version of `rrdu` is found, a summary table displays available release details before proceeding.
+- **Dedicated Update Interface:** Running `rrdu --self-update` opens a focused interactive screen allowing:
+  - `g`: In-place binary self-update via GitHub Releases (downloads and replaces binary in user space).
+  - `c`: Update via `cargo install rust-recursive-deps-updater` from crates.io.
+  - `q` / `Esc`: Abort and cleanly exit.
+- **User-Space & Secure:** Operates strictly within user-space privileges without requiring root.
+- **Persistent Caching:** Uses disk caching (`~/.rrdu/cache/rrdu_self_update_cache.bin`) with a 24-hour expiration check to prevent unnecessary API queries.
 
 ---
 
