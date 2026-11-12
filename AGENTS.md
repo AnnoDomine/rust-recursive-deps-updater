@@ -25,11 +25,11 @@ This document serves as the single source of truth and directive for all AI agen
     - **TTY Verification Fallback:** Proactively checks whether standard input/output is a genuine interactive terminal (`Term::is_term()`). If executed in non-TTY environments, pipes, or redirected streams, it safely aborts with an informative message pointing to `--headless` rather than risking low-level `ioctl` errors.
     - **Signal & Cancellation Trapping:** Actively intercepts user interruptions (`Ctrl+C`, `SIGINT`) and exit keys (`Esc`) to restore terminal state (unhiding the cursor and resetting raw mode) and exit cleanly with code `2` on interrupt or `0` on clean exit, preventing corrupted terminal sessions.
 - **Path Traversal Defense:**
-  - All paths from configuration files (`.rrduconfig`) or user inputs must be strictly validated.
+  - All paths from configuration files (`rrdu.toml` or legacy `.rrduconfig`) or user inputs must be strictly validated.
   - Only the current directory (`./`) or internal subdirectories (e.g. `crates/...`) are permitted.
   - Any attempt to reference parent paths (`../`) or root paths (`/`) must be rejected with a typed `ConfigError::InsecurePath` and exit code `1`. Never panic!
 - **Zero Injections / Static Configuration:**
-  - Dynamic configuration overrides via arbitrary CLI flags are prohibited. All operational settings are defined via `.rrduconfig` or validated action inputs.
+  - Dynamic configuration overrides via arbitrary CLI flags are prohibited. All operational settings are defined via `rrdu.toml` (or legacy `.rrduconfig`) or validated action inputs.
 - **Network Safety:**
   - Outgoing HTTP queries to crates.io and GitHub Releases must use HTTPS with strict timeouts (10s), retry limits, and a compliant `User-Agent: rust-recursive-deps-updater/<version> (<url>)`.
 
@@ -96,7 +96,7 @@ rust-recursive-deps-updater/
 │   ├── lib.rs           # #![forbid(unsafe_code)], core library exports
 │   ├── main.rs          # #![forbid(unsafe_code)], CLI entry point & dispatcher
 │   ├── cli/             # Interactive prompts, pagination, display, table formatting
-│   ├── config/          # .rrduconfig model, noyalib YAML parsing, path validation
+│   ├── config/          # rrdu.toml (toml_edit) & legacy .rrduconfig model, migration engine, path validation
 │   ├── interactivity/   # Raw terminal management, input handlers, and view renderers
 │   ├── logger/          # Trace logging engine, background Tokio worker & status codes
 │   ├── registry/        # crates.io API client (ureq + rustls), SemVer classifier

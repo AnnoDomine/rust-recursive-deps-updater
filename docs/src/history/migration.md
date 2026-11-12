@@ -4,6 +4,67 @@ As the project may introduce breaking changes during early development, this doc
 
 ---
 
+## Version 0.1.0 to 0.1.1
+
+### Transition from `.rrduconfig` (YAML) to `rrdu.toml` (TOML)
+
+> [!WARNING]
+> **Deprecation Notice:** `.rrduconfig` (YAML) is now **deprecated**. While full backwards compatibility is maintained in this release (legacy configurations continue to work transparently in-memory without breaking existing workflows), `.rrduconfig` will be completely removed in a future release. We strongly recommend migrating to `rrdu.toml`.
+
+#### 1. Migration Command (`--migrate`)
+You can migrate an existing `.rrduconfig` file located at the current folder level to `rrdu.toml` using:
+
+```sh
+rrdu --migrate
+```
+
+* **Scope:** Migrates the configuration file located at the current working directory level.
+* **Deletion & Backups:** The legacy `.rrduconfig` file is irrevocably deleted after `rrdu.toml` is written. We recommend creating your own backup beforehand.
+* **Necessity:** Running `--migrate` is **optional for now**. If no `rrdu.toml` is present, `rrdu` automatically falls back to `.rrduconfig` and processes it in-memory. However, as legacy `.rrduconfig` will be dropped in a subsequent version, updating to `rrdu.toml` ensures long-term compatibility.
+
+#### 2. Configuration Schema Differences
+
+##### Legacy `.rrduconfig` (YAML - Deprecated):
+```yaml
+workspace:
+  - project: my-crate
+    path: ./
+    exclude:
+      project:
+        - serde
+      section:
+        dev-dependencies:
+          - tokio
+  - project: sub-crate
+    path: crates/sub
+    sub-config: true
+
+updater:
+  exclude:
+    - vendor
+  max-lines: 10
+  version: 0.1.0
+```
+
+##### Modern `rrdu.toml` (TOML - Active Standard):
+```toml
+# Schema for editor autocompletion and validation (Taplo / Even Better TOML)
+#:schema https://annodomine.github.io/rust-recursive-deps-updater/schemas/rrdu.schema.json
+
+[workspaces]
+my-crate = { label = "my-crate", path = "./", exclude = { project = ["serde"], section = { dev-dependencies = ["tokio"] } } }
+
+[configs]
+sub-crate = "crates/sub"
+
+[rrdu]
+max-lines = 10
+version = "0.1.0"
+exclude = ["vendor"]
+```
+
+---
+
 ## Version 0.0.6 to 0.1.0
 
 ### Changes in `.rrduconfig`

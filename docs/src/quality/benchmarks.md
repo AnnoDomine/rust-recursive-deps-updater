@@ -38,10 +38,15 @@ The benchmark suite profiles four performance-critical subsystems:
 
 ### 3. YAML Configuration Roundtrip
 - **Target Functions:** `noyalib::to_string_with_config` (Serialization) and `noyalib::from_str_with_config` (Deserialization) with `RrduConfig`.
-- **Workload:** Evaluates in-memory encoding and decoding of complete `.rrduconfig` workspace structures containing $N$ project crate definitions and exclusion rules.
+- **Workload:** Evaluates in-memory encoding and decoding of complete legacy `.rrduconfig` workspace structures containing $N$ project crate definitions and exclusion rules.
 - **Complexity:** $O(N)$ linear scaling for both serialization and deserialization.
 
-### 4. Dependency Tree Metrics & Filtering
+### 4. Modern TOML Configuration Roundtrip
+- **Target Functions:** `RrduTomlConfig::to_toml_string` (Serialization with compact inline tables) and `toml_edit::de::from_str` (Deserialization) with `RrduTomlConfig`.
+- **Workload:** Evaluates encoding and decoding of modern `rrdu.toml` workspace structures containing $N$ project crate definitions, exclusion rules, and sub-config references.
+- **Complexity:** $O(N)$ linear scaling for both serialization and deserialization.
+
+### 5. Dependency Tree Metrics & Filtering
 - **Target Functions:** `ProjectDependency::total_values`, `ProjectDependency::count_valid_sections`, and `ProjectDependency::count_supported_total_values` in `rrdu::enums`.
 - **Workload:** Evaluates multi-criteria dependency counting and section traversal across `dependencies`, `dev-dependencies`, and `build-dependencies`.
 - **Complexity:** $O(N)$ linear traversal with data locality and zero-allocation predicate matching.

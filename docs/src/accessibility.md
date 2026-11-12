@@ -54,7 +54,7 @@ For users relying on screen readers or terminal accessibility utilities, `rrdu -
 ## 4. Cognitive Accessibility & Predictable Layouts
 
 - **Hierarchical Breadcrumb Navigation:** Menus follow a predictable hierarchical mental model: `Workspace` $\rightarrow$ `Project` $\rightarrow$ `Section` $\rightarrow$ `Dependency`.
-- **Cognitive Load Reduction:** Screen clutter is bounded by configurable pagination (`updater.max_lines` in `.rrduconfig`), ensuring that large dependency trees are presented in digestible chunks.
+- **Cognitive Load Reduction:** Screen clutter is bounded by configurable pagination (`rrdu.max-lines` in `rrdu.toml` or `updater.max-lines` in legacy `.rrduconfig`), ensuring that large dependency trees are presented in digestible chunks.
 - **Explicit Instructions:** Every view level displays a contextual instruction prompt (e.g. `Select project:`, `Select dependency section:`).
 
 ---
