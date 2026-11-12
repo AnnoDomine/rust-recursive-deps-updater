@@ -14,7 +14,7 @@ use std::{io::IsTerminal, process};
 use rrdu::{
     args::Args,
     cli::{headless::Headless, interactive::Interactive},
-    config::rrdu_config::RrduConfig,
+    config::{migrate::MigrateYamlToTomlConfig, rrdu_toml::RrduTomlConfig},
     logger::status_codes::Module,
     report::report::Report,
     simple_status,
@@ -56,6 +56,12 @@ async fn main() {
         "Start rust-recursive-deps-updater"
     );
 
+    // Migration mode
+    if args.migrate {
+        MigrateYamlToTomlConfig::save_to_new_toml();
+        process::exit(0);
+    }
+
     // Report mode
     if args.report {
         Report::collect().await;
@@ -64,7 +70,7 @@ async fn main() {
 
     // Init mode
     if args.init {
-        RrduConfig::create_config();
+        RrduTomlConfig::create_config();
         process::exit(0);
     }
 

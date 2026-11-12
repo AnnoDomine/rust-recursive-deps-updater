@@ -18,6 +18,8 @@
 //! - Enter the next folder if it is not ignored
 //! - Repeat till no sub-folder are present
 
+#![allow(deprecated)]
+
 use std::{
     fs::read_dir,
     path::{Path, PathBuf},
@@ -188,7 +190,27 @@ impl Discovery {
                     log::LevelFilter::Info,
                     Module::DISCOVERY,
                     200,
-                    format!("Discovered sub-config (.rrduconfig) at '{name}'")
+                    format!("Legacy discovered sub-config (.rrduconfig) at '{name}'")
+                );
+                self.apply_found_project(name.to_string(), name.to_string(), true);
+            };
+        } else {
+            return self.scan_for_rrdu_toml();
+        };
+        Ok(())
+    }
+
+    fn scan_for_rrdu_toml(&mut self) -> Result<(), FileError> {
+        if self
+            .dir_entries
+            .contains(&PathBuf::from(RRDU_TOML_FILE_NAME))
+        {
+            if let Some(name) = self.current_folder.to_str() {
+                simple_status!(
+                    log::LevelFilter::Info,
+                    Module::DISCOVERY,
+                    200,
+                    format!("Discovered sub-config (rrdu.toml) at '{name}'")
                 );
                 self.apply_found_project(name.to_string(), name.to_string(), true);
             };
