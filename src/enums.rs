@@ -502,6 +502,8 @@ pub enum CacheType {
     CratesIOApi,
     /// RustSec vulnerability advisory cache.
     RustsecJsonResponse,
+    /// Self-Update cache.
+    SelfUpdate,
 }
 
 #[cfg(test)]

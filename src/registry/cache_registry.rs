@@ -32,6 +32,7 @@ impl Display for CacheType {
             CacheType::CratesIOApi => write!(f, "{:}", RRDU_REGISTRY_CACHE_CRATES_IO_API),
             CacheType::CratesIOIndex => write!(f, "{:}", RRDU_REGISTRY_CACHE_CRATES_IO_INDEX),
             CacheType::RustsecJsonResponse => write!(f, "{:}", RRDU_REGISTRY_CACHE_RUSTSEC_API_IDS),
+            CacheType::SelfUpdate => write!(f, "{:}", RRDU_REGISTRY_CACHE_SELF_UPDATE),
         }
     }
 }
@@ -50,6 +51,7 @@ impl CacheType {
             RRDU_REGISTRY_CACHE_CRATES_IO_API => Ok(CacheType::CratesIOApi),
             RRDU_REGISTRY_CACHE_CRATES_IO_INDEX => Ok(CacheType::CratesIOIndex),
             RRDU_REGISTRY_CACHE_RUSTSEC_API_IDS => Ok(CacheType::RustsecJsonResponse),
+            RRDU_REGISTRY_CACHE_SELF_UPDATE => Ok(CacheType::SelfUpdate),
             _ => {
                 simple_status!(
                     log::LevelFilter::Error,
@@ -68,6 +70,7 @@ impl CacheType {
             CacheType::CratesIOIndex => CACHE_ENTRY_CRATES_IO_INDEX_TTL,
             CacheType::CratesIOApi => CACHE_ENTRY_CRATES_IO_API_TTL,
             CacheType::RustsecJsonResponse => CACHE_ENTRY_RUSTSEC_API_TTL,
+            CacheType::SelfUpdate => CACHE_ENTRY_SELF_UPDATE_TTL,
         }
     }
 }
@@ -173,7 +176,7 @@ impl<T: Clone + Serialize + for<'de> Deserialize<'de> + Debug> CacheRegistry<T> 
                 Module::CACHE,
                 404,
                 format!(
-                    "No cache entry found or valid for '{key}'. Type: '{:?}'",
+                    "No cache entry found or outdated for '{key}'. Type: '{:?}'",
                     self.cache_type
                 )
             );
