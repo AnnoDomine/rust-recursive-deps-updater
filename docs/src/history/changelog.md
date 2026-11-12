@@ -5,6 +5,24 @@ All notable changes to `rust-recursive-deps-updater` (`rrdu`) will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [v0.1.1] - 2026-11-12
+
+### Added
+- **Modern TOML Configuration (`rrdu.toml`):** Fully migrated configuration system from legacy YAML (`.rrduconfig`) to `rrdu.toml` with strict validation via `toml_edit` AST parser and serde support.
+- **Automated Configuration Migration (`rrdu --migrate`):** Single-level CLI migration command to automatically convert legacy `.rrduconfig` files to modern `rrdu.toml`.
+- **JSON Schema Validation:** Hosted JSON Schema (`schemas/rrdu.schema.json`) on GitHub Pages with editor autocompletion (`Taplo` / `Even Better TOML`).
+- **Binary Self-Update Engine (`rrdu --self-update`):** In-place self-updater querying GitHub Releases API and crates.io, cached in `~/.rrdu/cache/rrdu_self_update_cache.bin` with a 24-hour TTL.
+- **E2E TOML Test Suite:** Added `tests/e2e_toml_config.rs` covering configuration migration and sub-config exclusion handling.
+
+### Changed
+- **Deprecated Legacy `.rrduconfig`:** Marked YAML configuration models as deprecated in preparation for removal in a future major release.
+- **Dependency Upgrades:** Upgraded `log`, `noyalib`, `sysinfo`, `tokio`, `toml_edit`, and `ureq` to their latest stable releases.
+
+### Planned for v0.2.0
+- **Cargo Crate Integration:** Refactoring core workspace traversal to embed the `cargo` crate as a dependency for performance and native Cargo accuracy.
+- **Interactive Workspace Dependency Management:** Add and delete dependencies across workspace crates interactively.
+- **Dioxus Desktop GUI (`--ui`):** Native desktop GUI built with Dioxus for enhanced UX/UI and accessibility.
+
 ## [v0.1.0] - 2026-10-15
 
 ### Added

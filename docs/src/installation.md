@@ -45,3 +45,17 @@ You can integrate `rrdu` directly into your GitHub Actions CI/CD workflows:
 ```
 
 For security, pinning to full immutable commit SHAs is recommended.
+
+---
+
+## 4. In-Place Binary Self-Update (`--self-update`)
+
+Once installed, you can update `rrdu` directly in-place to the newest GitHub Release without needing root or administrator privileges:
+
+```sh
+rrdu --self-update
+```
+
+- **Safety:** Replaces the binary atomically in user space.
+- **Upstream Sources:** Checks GitHub Releases for new pre-compiled binaries and compares versions with `crates.io`.
+- **Caching:** Self-update metadata is cached in `~/.rrdu/cache/rrdu_self_update_cache.bin` with a 24-hour TTL to prevent redundant network calls.

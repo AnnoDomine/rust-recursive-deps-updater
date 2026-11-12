@@ -18,7 +18,9 @@
 
 - **Dual-Mode Execution:** Interactive terminal interface with pagination, visual spinners, in-place overwriting, and keyboard navigation, alongside headless CI execution (`--headless`). All dependency updates require interactive validation by the user.
 - **Two-Tier Registry Strategy:** Fast static queries via the crates.io Sparse Index for CI gates, paired with rich metadata queries strictly throttled to 1 request per second in interactive mode adhering to the crates.io Data Access Policy.
-- **Tri-Cache Layer:** Persistent disk cache in `~/.rrdu/cache/` (Index, Web API, and RustSec advisories) with TTL expiration checks.
+- **Tri-Cache Layer:** Persistent disk cache in `~/.rrdu/cache/` (Index, Web API, RustSec advisories, and Self-Update metadata) with TTL expiration checks.
+- **In-Place Binary Self-Update:** Built-in self-update mechanism (`rrdu --self-update`) comparing the local build against GitHub Releases and crates.io.
+- **Modern TOML Configuration & Schema:** Structured configuration via `rrdu.toml` backed by Taplo-compatible JSON Schema validation and an automated migration tool (`rrdu --migrate`).
 - **Asynchronous Trace Logging & Structured Diagnostics:** Pure safe Rust async logging engine (`src/logger/`) with typed module status codes (`1YXX` - `8YXX`) backed by Tokio MPSC queuing (`mpsc::channel(5000)`). Log entries are written in the background to `./audit/rrdu.log` with automatic 1 MB file splitting and timestamped archive rotation (`rrdu_yyyy_mm_dd_hh_mm_ss_ms.log`) when `--trace` or `--report` is enabled.
 - **Terminal Safety & Execution Boundaries:** 
   - In **Headless Mode (`--headless`)**, the tool completely avoids unsafe code and low-level TTY interactions, utilizing `comfy-table-inline` with `Table::force_no_tty` to eliminate unsafe `ioctl` terminal calls.
@@ -26,9 +28,14 @@
 
 ---
 
-## Current State and Integrated Handlings
+## Current State and Version 0.2.0 Vision
 
-`rrdu` (version `{{RRDU_VERSION}}`) is currently under active pre-release development. Fundamental components including recursive workspace discovery, scoped ignore rules, registry index queries, tri-caching, SemVer classification, interactive terminal navigation, and comment-preserving manifest updates (`toml_edit`) are fully implemented and covered by unit tests.
+`rrdu` (version `{{RRDU_VERSION}}`) provides production-ready recursive workspace discovery, scoped ignore rules, registry index queries, tri-caching, SemVer classification, interactive terminal navigation, binary self-updates, and comment-preserving manifest updates (`toml_edit`).
 
-> Detailed information regarding completed milestones and upcoming implementations can be found in the [Pre-Release Roadmap](roadmap.md).
+Looking forward to the upcoming major version **v0.2.0**:
+- **Cargo Crate Core Refactoring:** The core workspace traversal and dependency graph engine is being refactored to embed the official `cargo` crate directly as a library dependency, delivering maximum execution performance, native Cargo resolution accuracy, and reduced memory overhead.
+- **Interactive Workspace Dependency Management:** Directly enabled by the `cargo` crate integration, developers will be able to add and delete dependencies across workspace crates interactively (`Add/delete deps in workspace in interactive mode`).
+- **Desktop Graphical UI via Dioxus (`--ui`):** A modern desktop GUI built with Dioxus on top of the interactive core, delivering rich workspace tree visualization and elevated UX/UI and digital accessibility.
+
+> Detailed information regarding completed milestones and upcoming implementations can be found in the [Roadmap](roadmap.md).
 
