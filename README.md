@@ -127,11 +127,17 @@ rrdu --headless
 
 ### 5. Self-Update
 
-Check for newer releases on GitHub and update the installed binary in-place:
+Check for newer releases on GitHub Releases or crates.io and update the installed binary in-place:
 
 ```sh
 rrdu --self-update
 ```
+
+- **Interactive Update Notification:** When launching `rrdu` in interactive mode and an update is detected, an informative summary table is displayed with release notes before continuing.
+- **Dedicated Self-Update Menu (`--self-update`):** Displays a focused terminal interface offering:
+  - `g`: Update in-place via GitHub Releases (downloads pre-compiled release binary and replaces executable atomically).
+  - `c`: Update via Cargo from crates.io (`cargo install rust-recursive-deps-updater`).
+  - `q` or `Esc`: Abort update and exit cleanly.
 
 ### 6. Diagnostics & Bug Report
 

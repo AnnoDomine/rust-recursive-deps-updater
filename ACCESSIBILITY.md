@@ -22,8 +22,10 @@
 | `PageDown` | List & Detail Views | Scroll down by one full page |
 | `Enter` / `Space` | List Views | Select highlighted item and open child view |
 | `u` | List & Detail Views | Execute manifest dependency update on highlighted/active crate |
+| `g` | Self-Update Menu | Trigger in-place binary update via GitHub Releases |
+| `c` | Self-Update Menu | Trigger binary update via Cargo from crates.io |
 | `Backspace` | All Views | Navigate back up to the parent view level |
-| `Esc` / `Ctrl+C` | All Views | Cleanly restore terminal state and exit |
+| `Esc` / `Ctrl+C` / `q` | All Views | Cleanly restore terminal state and exit / abort |
 
 ---
 
