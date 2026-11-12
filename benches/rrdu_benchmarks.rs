@@ -10,13 +10,18 @@
 //! 10, 20, 50, 100, 500, and 1000 entries.
 
 #![forbid(unsafe_code)]
+#![allow(deprecated)]
 
 use std::{collections::BTreeMap, hint::black_box, time::Duration};
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use noyalib::{ParserConfig, SerializerConfig};
 use rrdu::{
-    config::{model::*, rrdu_config::RrduConfig},
+    config::{
+        model::*,
+        rrdu_config::RrduConfig,
+        rrdu_toml::{RrduTomlConfig, TomlWorkspace},
+    },
     enums::*,
     interactivity::terminal::Terminal,
     updater::engine::UpdaterInformation,
@@ -178,6 +183,71 @@ fn bench_config_roundtrip(c: &mut Criterion) {
     group.finish();
 }
 
+/// Generates an in-memory [`RrduTomlConfig`] with $N$ workspace definitions and exclusion patterns.
+fn generate_toml_config(size: usize) -> RrduTomlConfig {
+    let mut config = RrduTomlConfig::default();
+    config.rrdu.max_lines = 10;
+    config.rrdu.version = String::from("0.1.0");
+
+    for i in 0..size {
+        let name = format!("crate_{:04}", i);
+        let path = format!("crates/crate_{:04}", i);
+
+        if i % 10 == 0 {
+            config.configs.insert(name, path);
+        } else {
+            let mut ws = TomlWorkspace::new(&path);
+            ws.set_label(&name);
+            if i % 3 == 0 {
+                ws.add_exclude_deps_in_project("serde");
+            }
+            if i % 5 == 0 {
+                ws.add_exclude_deps_in_sec("dev-dependencies", Some("tokio"));
+            }
+            config.workspaces.insert(name, ws);
+        }
+    }
+
+    config
+}
+
+/// Benchmarks TOML configuration serialization (with compact inline tables) and deserialization via `toml_edit`.
+///
+/// Measures encoding via [`RrduTomlConfig::to_toml_string`] and decoding via [`toml_edit::de::from_str`]
+/// across 10 to 1000 project entries.
+fn bench_toml_config_roundtrip(c: &mut Criterion) {
+    let mut group = c.benchmark_group("toml_config_roundtrip");
+    group.warm_up_time(Duration::from_millis(400));
+    group.measurement_time(Duration::from_millis(1000));
+    group.sample_size(30);
+
+    for &size in SIZES {
+        let config = generate_toml_config(size);
+        let toml_str = config
+            .to_toml_string()
+            .expect("serialization should succeed");
+
+        group.bench_with_input(
+            BenchmarkId::new("serialize_compact", size),
+            &config,
+            |b, cfg| {
+                b.iter(|| {
+                    let out = black_box(cfg).to_toml_string();
+                    black_box(out)
+                });
+            },
+        );
+
+        group.bench_with_input(BenchmarkId::new("deserialize", size), &toml_str, |b, s| {
+            b.iter(|| {
+                let parsed: Result<RrduTomlConfig, _> = toml_edit::de::from_str(black_box(s));
+                black_box(parsed)
+            });
+        });
+    }
+    group.finish();
+}
+
 /// Generates a [`ProjectDependency`] hierarchy partitioned across 3 sections.
 fn generate_project_dependency(size: usize) -> ProjectDependency {
     let mut normal_map = BTreeMap::new();
@@ -245,6 +315,7 @@ criterion_group!(
     bench_semver_classification,
     bench_terminal_pagination_and_lines,
     bench_config_roundtrip,
+    bench_toml_config_roundtrip,
     bench_dependency_tree_metrics,
 );
 criterion_main!(benches);
