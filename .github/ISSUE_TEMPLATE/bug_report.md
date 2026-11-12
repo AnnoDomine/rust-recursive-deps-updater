@@ -31,8 +31,8 @@ Paste any relevant error output or backtraces here
 ```
 
 ## Relevant Configuration
-```yaml
-# If applicable, paste your .rrduconfig or Cargo.toml contents here
+```toml
+# If applicable, paste your rrdu.toml (or legacy .rrduconfig) / Cargo.toml contents here
 ```
 
 ## Additional Context

@@ -11,7 +11,7 @@ This document serves as the central engineering specification, architecture manu
 ### Primary Objectives
 
 1. **Transparent Discovery:** Automatically discover all `Cargo.toml` manifests across cargo workspaces and nested standalone crates.
-2. **Deterministic Configuration:** Support `.rrduconfig` (YAML) to define project boundaries and fine-grained exclude lists.
+2. **Deterministic Configuration:** Support `rrdu.toml` (TOML) to define project boundaries and fine-grained exclude lists (with backwards-compatible in-memory fallback for legacy `.rrduconfig`).
 3. **Targeted Registry Queries:** Check dependencies exclusively against `crates.io` (git and path dependencies are intentionally ignored and skipped).
 4. **Accurate SemVer Classification:** Categorize updates following Rust Cargo SemVer conventions:
    - `latest version` (up to date)
@@ -26,48 +26,44 @@ This document serves as the central engineering specification, architecture manu
 
 ## 2. Technical Architecture & Component Specification
 
-### 2.1 Configuration Layer (`.rrduconfig` & GitHub Action)
+### 2.1 Configuration Layer (`rrdu.toml` & GitHub Action)
 
-- **Format:** YAML 1.2, parsed via `noyalib` (pure Rust, `#![forbid(unsafe_code)]`, maintained drop-in replacement for `serde_yaml`).
-- **Standard Location:** Workspace root (`./.rrduconfig`).
+- **Primary Format:** TOML, parsed via `toml_edit` (pure Rust, `#![forbid(unsafe_code)]`, Serde-enabled AST parser).
+- **Standard Location:** Workspace root (`./rrdu.toml`).
+- **Legacy `.rrduconfig` Support (Deprecated):** Legacy YAML format (`.rrduconfig`) is **deprecated** and will be removed in a future release. For full backwards compatibility, existing `.rrduconfig` files continue to be processed transparently in-memory if no `rrdu.toml` is found.
+- **Configuration Migration (`--migrate`):** Users can migrate directory-local legacy `.rrduconfig` files to modern `rrdu.toml` via `rrdu --migrate`.
+- **Schema Validation & Editor Autocompletion:** A JSON Schema is hosted at `https://annodomine.github.io/rust-recursive-deps-updater/schemas/rrdu.schema.json` and supported via `#:schema` directives (Taplo / Even Better TOML).
 - **Custom Configuration:** The CLI accepts `--config-path=<path>` (strictly validated against path traversal).
 - **GitHub Action Integration:**
   - `action.yml` supports custom config files via `config: <path>`.
-  - If omitted, the action defaults to `./.rrduconfig` in the workspace root.
+  - If omitted, the action defaults to `./rrdu.toml` (or legacy `./.rrduconfig`) in the workspace root.
 - **Security & Path Defense:**
-  - Strict path validation: Paths in `.rrduconfig` must point to the current directory (`./`) or internal subdirectories (e.g., `crates/...`).
+  - Strict path validation: Paths in `rrdu.toml` (or legacy `.rrduconfig`) must point to the current directory (`./`) or internal subdirectories (e.g., `crates/...`).
   - Parent directory references (`../`) or absolute root paths (`/`) are rejected with `ConfigError::InsecurePath` and exit code `1`. No panics!
-- **Specification:**
+- **Specification (`rrdu.toml`):**
 
-```yaml
-workspace:
-  - project: Root
-    path: ./
-    exclude:
-      project: # Excludes all named dependencies project wide
-        - tokio
-      section: # Excludes all named dependencies from specific sections
-        dev-dependencies: # Only exclude named dependencies from [dev-dependencies] section
-          - serde
-        dependencies.clap: [] # Exclude [dependencies.clap] section in total.
-  - project: WorkspaceCrate
-    path: crates/workspace_crate
-    sub-config: true
+```toml
+#:schema https://annodomine.github.io/rust-recursive-deps-updater/schemas/rrdu.schema.json
 
-updater:
-  exclude:
-    - excluded_project
-  max-lines: 10 # Maximum entries per page during interactive pagination
-  version: 0.0.4 # Version where the config file was created
+[workspaces]
+Root = { label = "Root", path = "./", exclude = { project = ["tokio"], section = { dev-dependencies = ["serde"], "dependencies.clap" = [] } } }
+
+[configs]
+WorkspaceCrate = "crates/workspace_crate"
+
+[rrdu]
+max-lines = 10
+version = "0.1.0"
+exclude = ["excluded_project"]
 ```
 
-- `workspace.project`: Human-readable name of the project.
-- `workspace.path`: Relative path to the project directory or `Cargo.toml` (e.g., `./`, `crates/...`).
-- `workspace.exclude`: Fine-grained exclusion configuration with project-wide (project) and section-specific (section) scopes.
-- `workspace.sub-config`: Optional boolean flag indicating whether the sub-project provides its own `.rrduconfig` (default: `false`).
-- `updater.exclude`: Optional folder paths ignored during recursive discovery.
-- `updater.max-lines`: Maximum entries per page during interactive pagination. Default: `50`.
-- `updater.version`: Schema version of the `.rrduconfig` used for compatibility checks and legacy configuration detection.
+- `workspaces.<key>.label`: Human-readable name of the project.
+- `workspaces.<key>.path`: Relative path to the project directory or `Cargo.toml` (e.g., `./`, `crates/...`).
+- `workspaces.<key>.exclude`: Fine-grained exclusion configuration with project-wide (`project`) and section-specific (`section`) scopes.
+- `configs.<key>`: Path to a sub-project directory providing its own `rrdu.toml` (or legacy `.rrduconfig`).
+- `rrdu.exclude`: Optional folder paths ignored during recursive discovery.
+- `rrdu.max-lines`: Maximum entries per page during interactive pagination. Default: `50`.
+- `rrdu.version`: Schema version of the configuration file.
 
 ### 2.2 Workspace & Crate Discovery Engine
 
@@ -125,7 +121,7 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 #### Mode B: Headless Scan (`rrdu --headless`)
 
 - Designed for CI/CD pipelines and automated dependency audits.
-- Requires `.rrduconfig`. If missing, terminates with exit code `1` and suggests running `rrdu init`.
+- Requires `rrdu.toml` (or legacy `.rrduconfig`). If missing, terminates with exit code `1` and suggests running `rrdu --init`.
 - Scans all configured projects and renders a clean nested table hierarchy:
   `Project` -> `Section` -> `Dependency | Version | Latest | Is latest | Needs Migration`
 - Table is rendered via `comfy-table-inline` in `src/cli/headless.rs` using `Table::force_no_tty` by default (ensuring 100% safe Rust without unsafe `ioctl` calls) for structured tabular output with nested `InlineTable` rows.
@@ -141,8 +137,8 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 
 #### Mode C: Configuration Generator (`rrdu --init`)
 
-- Recursively scans the current directory, detects all `Cargo.toml` manifests, and generates a fully-commented `.rrduconfig` template.
-- If `.rrduconfig` already exists, prompts `Override [y/n]` to prevent accidental data loss.
+- Recursively scans the current directory, detects all `Cargo.toml` manifests, and generates a fully-commented `rrdu.toml` template.
+- If `rrdu.toml` already exists, prompts `Override [y/n]` to prevent accidental data loss.
 
 #### Mode D: Binary Self-Update (`rrdu --self-update`)
 
@@ -159,6 +155,12 @@ Binary executable: `rrdu` (Unix) and `rrdu.exe` (Windows).
 #### Mode F: Reference Help (`rrdu --help`, `rrdu -h`)
 
 - Prints comprehensive CLI command documentation and flag reference.
+
+#### Mode G: Single-Level Configuration Migration (`rrdu --migrate`)
+
+- Migrates an existing legacy `.rrduconfig` (YAML) located at the current working directory level into modern `rrdu.toml` (TOML).
+- Irrevocably removes the legacy `.rrduconfig` file upon successfully writing `rrdu.toml`. Users should create their own manual backup beforehand if needed.
+- Transparent and non-intrusive: migration is optional in the current release while `.rrduconfig` remains supported in-memory, but ensures forward compatibility before `.rrduconfig` is removed in a future release.
 
 ### 2.5 Comment-Preserving Manifest Updater (`toml_edit`)
 
@@ -236,9 +238,12 @@ rust-recursive-deps-updater/
 │ │ ├── display.rs # Colored console output & progress spinners
 │ │ ├── headless.rs # Formatted nested table renderer for --headless mode
 │ │ └── pagination.rs # Pagination & scroll logic (/next, /prev, arrow keys)
-│ ├── config/ # .rrduconfig data models & noyalib YAML parser
+│ ├── config/ # rrdu.toml (toml_edit) & legacy .rrduconfig model, migration engine, path validation
 │ │ ├── mod.rs
-│ │ └── model.rs # Config structs, exclude evaluation, path validation
+│ │ ├── rrdu_toml.rs # Modern rrdu.toml data model & parser
+│ │ ├── migrate.rs # Legacy .rrduconfig migration engine
+│ │ ├── rrdu_config.rs # Deprecated legacy .rrduconfig model
+│ │ └── model.rs # Deprecated models, exclude evaluation, path validation
 │ ├── logger/ # Asynchronous trace logging engine, Tokio MPSC worker, rotation & status codes
 │ │ ├── mod.rs
 │ │ ├── logger.rs # LogWorker, Logger actor, file splitting and rotation
@@ -400,5 +405,5 @@ rust-recursive-deps-updater/
 
 - [ ] Transition crates.io publishing to Trusted Publishing (OIDC) after the initial release.
 - [ ] Publish composite action to GitHub Marketplace.
-- [ ] Implement binary self-update (`rrdu self-update`) against GitHub Releases API.
-- [ ] Optional. Migrate `.rrduconfig` to `rrdu.toml`.
+- [x] Implement binary self-update (`rrdu self-update` / `rrdu --self-update`) against GitHub Releases API.
+- [x] Migrate configuration format from legacy `.rrduconfig` to modern `rrdu.toml` (`rrdu --migrate`) with JSON schema validation.
