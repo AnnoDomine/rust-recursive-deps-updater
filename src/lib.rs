@@ -14,6 +14,8 @@ pub mod logger;
 pub mod registry;
 /// Report storage
 pub mod report;
+/// Self-Updater with github version check and handling to restart app after update.
+pub mod self_updater;
 /// Update modules.
 pub mod updater;
 /// Workspace project discovery, TOML parsing, and dependency mapping.
