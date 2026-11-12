@@ -159,6 +159,18 @@ impl Headless {
         let projects = self.headless_project_table();
         table.add_inline_table(projects);
         trace().print_and_save_log(log::LevelFilter::Trace, &table.to_string());
+        trace().print_and_save_log(
+            log::LevelFilter::Trace,
+            format!(
+                "Found outdated dependencies: {:}",
+                self.found_outdated_dependency
+            )
+            .as_str(),
+        );
+        trace().print_and_save_log(
+            log::LevelFilter::Trace,
+            format!("Headless-Mode: {:}", is_headless).as_str(),
+        );
         if self.found_outdated_dependency && is_headless {
             simple_status!(
                 log::LevelFilter::Error,
