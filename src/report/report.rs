@@ -1,7 +1,7 @@
 use sysinfo::{CpuRefreshKind, RefreshKind, System};
 
 use crate::{
-    cli::headless::Headless, config::rrdu_config::RrduConfig, logger::logger::trace,
+    cli::headless::Headless, config::rrdu_toml::RrduTomlConfig, logger::logger::trace,
     workspace::project::Workspace,
 };
 
@@ -31,28 +31,30 @@ impl Report {
     }
 
     fn system() {
-        if let Some(os_name) = System::name() {
+        if let Ok(os_name) = System::name() {
             Self::system_information("OS Name: ", &os_name);
         }
-        if let Some(os_version) = System::os_version() {
+        if let Ok(os_version) = System::os_version() {
             Self::system_information("OS Version: ", &os_version);
         }
-        Self::system_information("Kernel: ", &System::kernel_long_version());
+        if let Ok(sklv) = System::kernel_long_version() {
+            Self::system_information("Kernel: ", &sklv)
+        };
 
-        let mut s = System::new_with_specifics(
+        if let Ok(mut s) = System::new_with_specifics(
             RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
-        );
+        ) {
+            s.refresh_cpu_usage();
+            Self::system_information("CPU usage: ", &(s.global_cpu_usage()).to_string());
 
-        s.refresh_cpu_usage();
-        Self::system_information("CPU usage: ", &(s.global_cpu_usage()).to_string());
-
-        s.refresh_memory();
-        let total_memory = s.total_memory() as f64 / 1024.0 / 1024.0;
-        let used_memory = s.used_memory() as f64 / 1024.0 / 1024.0;
-        let free_memory = s.free_memory() as f64 / 1024.0 / 1024.0;
-        Self::system_information("Total Memory: ", &format!("{total_memory:.2} MB"));
-        Self::system_information("Used Memory: ", &format!("{used_memory:.2} MB"));
-        Self::system_information("Available Memory: ", &format!("{free_memory:.2} MB"));
+            s.refresh_memory();
+            let total_memory = s.total_memory() as f64 / 1024.0 / 1024.0;
+            let used_memory = s.used_memory() as f64 / 1024.0 / 1024.0;
+            let free_memory = s.free_memory() as f64 / 1024.0 / 1024.0;
+            Self::system_information("Total Memory: ", &format!("{total_memory:.2} MB"));
+            Self::system_information("Used Memory: ", &format!("{used_memory:.2} MB"));
+            Self::system_information("Available Memory: ", &format!("{free_memory:.2} MB"));
+        };
     }
 
     fn rrdu_infos() {
@@ -63,7 +65,7 @@ impl Report {
 
     fn list_rrdu_config() {
         Self::save_to_trace(&format!("{:#^150}", " RRDU CONFIG "));
-        let config = RrduConfig::new();
+        let config = RrduTomlConfig::new();
         Self::save_to_trace(&format!("{config}"));
     }
 
