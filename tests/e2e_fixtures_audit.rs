@@ -3,7 +3,7 @@ use tempfile::Builder;
 
 use rrdu::{
     cli::headless::Headless,
-    config::model::ProjectConfig,
+    config::rrdu_toml::TomlWorkspace,
     enums::{Boolean, DependencyCollectionVersion, DependencySection},
     registry::crates_index_response_structs::CratesIndexItem,
     workspace::project::{Projects, Workspace},
@@ -24,8 +24,9 @@ async fn test_e2e_offline_fixtures_and_semver_audit() {
     fs::write(&target_toml, &fixture_manifest).expect("write temp Cargo.toml");
 
     // 2. Parse project
-    let config = ProjectConfig::new("test-project".to_string(), rel_dir.to_string());
-    let mut project = Projects::new(config, Boolean::False);
+    let mut config = TomlWorkspace::new(rel_dir);
+    config.set_label("test-project");
+    let mut project = Projects::new("test-project", config, Boolean::False);
     project.parse_project();
 
     // 3. Parse offline sparse index fixtures
