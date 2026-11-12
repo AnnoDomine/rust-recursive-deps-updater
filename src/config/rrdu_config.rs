@@ -3,6 +3,8 @@
 //! Provides [`RrduConfig`] representing the root `.rrduconfig` YAML file,
 //! functions to check version compatibility, and methods for loading from or saving to disk.
 
+#![allow(deprecated)]
+
 use std::{
     fmt::Display,
     path::{Path, PathBuf},
@@ -17,6 +19,10 @@ use crate::{
 };
 
 /// Root configuration representation corresponding to `.rrduconfig`.
+#[deprecated(
+    since = "0.1.1",
+    note = "The `.rrduconfig` YAML format is deprecated and will be removed in a future release. Use `RrduTomlConfig` instead."
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RrduConfig {
     /// List of workspace projects discovered or defined in `.rrduconfig`.
@@ -79,6 +85,10 @@ impl Display for RrduConfig {
 ///
 /// # Returns
 /// A [`ConfigCompatibility`] variant indicating compatibility status.
+#[deprecated(
+    since = "0.1.1",
+    note = "The `.rrduconfig` YAML format is deprecated. Use `rrdu_toml::check_config_compatibility` instead."
+)]
 pub fn check_config_compatibility(config: &RrduConfig) -> ConfigCompatibility {
     let Some(raw_version) = &config.updater.version else {
         return ConfigCompatibility::LegacyMissingVersion;

@@ -3,6 +3,8 @@
 //! Defines [`ProjectConfig`], [`ExcludeConfig`], and [`UpdaterConfig`] models matching
 //! the `.rrduconfig` YAML format, including path resolution and dependency exclusion helpers.
 
+#![allow(deprecated)]
+
 use std::{collections::HashMap, env, fmt::Display, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -10,6 +12,10 @@ use serde::{Deserialize, Serialize};
 use crate::{constants::*, enums::*, errors::*, functions::*};
 
 /// Dependency exclusion rules configured for a project.
+#[deprecated(
+    since = "0.1.1",
+    note = "Legacy configuration model from `.rrduconfig`. Use `TomlWorkspaceExclude` instead."
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct ExcludeConfig {
@@ -22,6 +28,10 @@ pub struct ExcludeConfig {
 }
 
 /// Configuration settings for an individual project or crate within a workspace.
+#[deprecated(
+    since = "0.1.1",
+    note = "Legacy configuration model from `.rrduconfig`. Use `TomlWorkspace` instead."
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ProjectConfig {
@@ -147,6 +157,10 @@ impl ProjectConfig {
 }
 
 /// Global updater settings controlling automated scans, updates, and UI display.
+#[deprecated(
+    since = "0.1.1",
+    note = "Legacy configuration model from `.rrduconfig`. Use `TomlRrdu` instead."
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct UpdaterConfig {
