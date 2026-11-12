@@ -1,0 +1,13 @@
+#:schema https://annodomine.github.io/rust-recursive-deps-updater/schemas/rrdu.schema.json
+
+[workspaces]
+rust-recursive-deps-updater = { label = "rrdu", path = "./", exclude = { project = [
+    "comfy-table-inline",
+    "rustls",
+] } }
+
+[configs]
+
+[rrdu]
+max-lines = 10
+version = "0.1.0"
