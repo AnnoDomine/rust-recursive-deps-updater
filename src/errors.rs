@@ -33,6 +33,22 @@ pub enum ConfigError {
     #[error("YAML configuration error: {0}")]
     Yaml(#[from] noyalib::Error),
 
+    /// TOML parsing or deserialization failure from toml_edit.
+    #[error("TOML configuration deserialization error: {0}")]
+    TomlDe(#[from] toml_edit::de::Error),
+
+    /// TOML serialization failure from toml_edit.
+    #[error("TOML configuration serialization error: {0}")]
+    TomlSer(#[from] toml_edit::ser::Error),
+
+    /// TOML document parsing error from toml_edit.
+    #[error("TOML document parsing error: {0}")]
+    Toml(#[from] toml_edit::TomlError),
+
+    /// SemVer error
+    #[error("SemVer error: {0}")]
+    SemVer(#[from] semver::Error),
+
     /// 'self_update' error
     #[error("self_update error: {0}")]
     SelfUpdate(#[from] self_update::errors::Error),

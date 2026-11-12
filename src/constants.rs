@@ -10,7 +10,16 @@ pub const BIN_NAME: &str = "rrdu";
 
 /// Binary name used for install via 'cargo'. `cargo install rust-recursive-dependency-updater@latest`
 pub const CARGO_INSTALL_BIN_NAME: &str = "rust-recursive-dependency-updater";
+
+/// Legacy configuration filename for `rrdu`.
+#[deprecated(
+    since = "0.1.1",
+    note = "The `.rrduconfig` YAML format is deprecated and will be removed in a future release. Use `rrdu.toml` (`RRDU_TOML_FILE_NAME`) instead."
+)]
 pub const RRDUCONFIG_FILE_NAME: &str = ".rrduconfig";
+
+/// Configuration filename for `rrdu`.
+pub const RRDU_TOML_FILE_NAME: &str = "rrdu.toml";
 
 /// Cargo manifest filename.
 pub const CARGO_TOML_FILE_NAME: &str = "Cargo.toml";

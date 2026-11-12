@@ -1,0 +1,106 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://annodomine.github.io/rust-recursive-deps-updater/schemas/rrdu.schema.json",
+    "title": "rrdu.toml Configuration Schema",
+    "description": "Configuration schema for rust-recursive-deps-updater (rrdu).",
+    "type": "object",
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "description": "Optional schema reference URL for editor autocompletion."
+        },
+        "workspaces": {
+            "type": "object",
+            "description": "List of single 'Cargo.toml' workspaces and project manifests.",
+            "additionalProperties": {
+                "$ref": "#/definitions/WorkspaceProject"
+            }
+        },
+        "configs": {
+            "type": "object",
+            "description": "List of single 'rrdu.toml' or legacy '.rrduconfig' sub-workspaces. Key represents the label, value represents the path to the sub-configuration directory or file.",
+            "additionalProperties": {
+                "type": "string",
+                "description": "Path to the sub-configuration directory or file (e.g. 'crates/sub/'). Traversal outside root is rejected."
+            }
+        },
+        "rrdu": {
+            "type": "object",
+            "description": "Workspace runner and CLI interactive options.",
+            "required": [
+                "max-lines",
+                "version"
+            ],
+            "properties": {
+                "max-lines": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 10,
+                    "description": "Amount of lines rendered in the interactive CLI list/scroll view."
+                },
+                "version": {
+                    "type": "string",
+                    "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+.*$",
+                    "description": "Version of rrdu with which this configuration file was created or migrated."
+                },
+                "exclude": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "description": "List of folders or project directories to ignore during recursive discovery."
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": false,
+    "definitions": {
+        "WorkspaceProject": {
+            "type": "object",
+            "required": [
+                "path"
+            ],
+            "properties": {
+                "label": {
+                    "type": "string",
+                    "description": "Optional display label. Defaults to the table key (project name) if omitted."
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Path to the directory containing Cargo.toml or directly to Cargo.toml, relative to this config file. Traversal outside root is forbidden."
+                },
+                "exclude": {
+                    "$ref": "#/definitions/ExcludeRule"
+                }
+            },
+            "additionalProperties": false
+        },
+        "ExcludeRule": {
+            "type": "object",
+            "description": "Dependency and section exclusion rules.",
+            "properties": {
+                "project": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "description": "Project-wide excluded dependency names."
+                },
+                "section": {
+                    "type": "object",
+                    "description": "Section-specific exclusions. Keys can be section names (e.g. 'dev-dependencies' or 'dependencies.clap'). Values are arrays of dependency names, or an empty array to exclude the ￹entire section.",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "additionalProperties": false
+        }
+    }
+}
